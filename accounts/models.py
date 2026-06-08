@@ -19,9 +19,17 @@ class CustomUserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
+    VENDEDOR = 'vendedor'
+    GERENTE = 'gerente'
+    ROLE_CHOICES = [
+        (VENDEDOR, 'Vendedor'),
+        (GERENTE, 'Gerente'),
+    ]
+
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=VENDEDOR)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -40,3 +48,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def get_full_name(self):
         return f'{self.first_name} {self.last_name}'.strip()
+
+    @property
+    def is_gerente(self):
+        return self.role == self.GERENTE
