@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django_browser_reload',
     # local
     'accounts',
+    'consultas',
     'theme',
 ]
 

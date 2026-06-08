@@ -20,6 +20,7 @@
                     <span class="text-xl font-bold text-blue-600">Supply Argentina</span>
                     <div class="ml-10 flex space-x-4">
                         <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Dashboard</a>
+                        <a href="{% url 'consultas:list' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Consultas</a>
                         {% if user.is_gerente %}
                         <a href="{% url 'accounts:user_list' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Usuarios</a>
                         {% endif %}

@@ -8,18 +8,44 @@
     <p class="text-gray-500 mt-1">Bienvenido, {{ user.get_full_name|default:user.email }}</p>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-        <p class="text-sm font-medium text-gray-500">Total Clientes</p>
-        <p class="mt-2 text-3xl font-bold text-gray-900">0</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-        <p class="text-sm font-medium text-gray-500">Oportunidades activas</p>
-        <p class="mt-2 text-3xl font-bold text-gray-900">0</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-        <p class="text-sm font-medium text-gray-500">Tareas pendientes</p>
-        <p class="mt-2 text-3xl font-bold text-gray-900">0</p>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <a href="{% url 'consultas:list' %}?estado=cotizado" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Cotizadas</p>
+        <p class="mt-2 text-3xl font-bold text-yellow-500">{{ stats.cotizado }}</p>
+    </a>
+    <a href="{% url 'consultas:list' %}?estado=facturado" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Facturadas</p>
+        <p class="mt-2 text-3xl font-bold text-green-500">{{ stats.facturado }}</p>
+    </a>
+    <a href="{% url 'consultas:list' %}?estado=recontactar" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Recontactar</p>
+        <p class="mt-2 text-3xl font-bold text-purple-500">{{ stats.recontactar }}</p>
+    </a>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Total</p>
+        <p class="mt-2 text-3xl font-bold text-gray-700">{{ stats.total }}</p>
     </div>
 </div>
+
+{% if pendientes %}
+<div class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-amber-100 bg-amber-50">
+        <h2 class="font-semibold text-amber-800">⚠ Seguimientos pendientes ({{ pendientes|length }})</h2>
+    </div>
+    <table class="min-w-full divide-y divide-gray-100 text-sm">
+        <tbody>
+            {% for c in pendientes %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-3 text-gray-400 whitespace-nowrap">{{ c.fecha_seguimiento|date:"d/m" }}</td>
+                <td class="px-6 py-3 font-medium text-gray-900">{{ c.razon_social|default:c.contacto|default:"—" }}</td>
+                <td class="px-6 py-3 text-gray-500">{{ c.productos|truncatechars:50 }}</td>
+                <td class="px-6 py-3 text-right">
+                    <a href="{% url 'consultas:detail' c.pk %}" class="text-blue-600 hover:text-blue-800 font-medium">Ver →</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% endblock %}

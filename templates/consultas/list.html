@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Consultas - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Consultas</h1>
+        <p class="text-sm text-gray-500 mt-1">{{ total }} resultado{{ total|pluralize }}</p>
+    </div>
+    <a href="{% url 'consultas:create' %}"
+       class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+        + Nueva consulta
+    </a>
+</div>
+
+<form method="get" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>{{ filtro.buscar }}</div>
+        <div>{{ filtro.estado }}</div>
+        <div class="flex gap-2">
+            {{ filtro.via_entrada }}
+            <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 whitespace-nowrap">Filtrar</button>
+            <a href="{% url 'consultas:list' %}" class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50 whitespace-nowrap">Limpiar</a>
+        </div>
+    </div>
+</form>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <tr>
+                    <th class="px-4 py-3 text-left">Fecha</th>
+                    <th class="px-4 py-3 text-left">Productos</th>
+                    <th class="px-4 py-3 text-left">Empresa / Contacto</th>
+                    <th class="px-4 py-3 text-left">Teléfono</th>
+                    <th class="px-4 py-3 text-left">Estado</th>
+                    <th class="px-4 py-3 text-left">Seguimiento</th>
+                    {% if user.is_gerente %}<th class="px-4 py-3 text-left">Vendedor</th>{% endif %}
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for c in consultas %}
+                <tr class="hover:bg-gray-50 {% if c.seguimiento_vencido %}bg-amber-50{% endif %}">
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ c.fecha|date:"d/m/Y" }}</td>
+                    <td class="px-4 py-3 max-w-xs">
+                        <div class="font-medium text-gray-900 truncate">{{ c.productos }}</div>
+                        {% if c.cantidad %}<div class="text-gray-400">Cant: {{ c.cantidad }}</div>{% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-gray-900">{{ c.razon_social|default:"—" }}</div>
+                        <div class="text-gray-400">{{ c.contacto|default:"" }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ c.telefono|default:"—" }}</td>
+                    <td class="px-4 py-3">
+                        {% if c.estado == 'facturado' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Facturado</span>
+                        {% elif c.estado == 'cotizado' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Cotizado</span>
+                        {% elif c.estado == 'recontactar' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Recontactar</span>
+                        {% elif c.estado == 'compro_otro' or c.estado == 'no_compra' or c.estado == 'cancelado' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">{{ c.get_estado_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">
+                        {% if c.fecha_seguimiento %}
+                            {% if c.seguimiento_vencido %}
+                                <span class="font-semibold text-amber-600">⚠ {{ c.fecha_seguimiento|date:"d/m" }}</span>
+                            {% else %}
+                                {{ c.fecha_seguimiento|date:"d/m/Y" }}
+                            {% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                    {% if user.is_gerente %}
+                    <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.vendedor.get_full_name|default:c.vendedor.email }}</td>
+                    {% endif %}
+                    <td class="px-4 py-3 text-right">
+                        <a href="{% url 'consultas:detail' c.pk %}" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Ver</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-10 text-center text-gray-400">No hay consultas que coincidan.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

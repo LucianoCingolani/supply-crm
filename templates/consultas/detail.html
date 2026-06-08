@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Consulta — {{ consulta.razon_social|default:consulta.contacto|default:"Sin empresa" }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'consultas:list' %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+        <h1 class="text-xl font-bold text-gray-900">{{ consulta.razon_social|default:consulta.contacto|default:"Sin empresa" }}</h1>
+        {% if consulta.estado == 'facturado' %}
+            <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Facturado</span>
+        {% elif consulta.estado == 'cotizado' %}
+            <span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Cotizado</span>
+        {% elif consulta.estado == 'recontactar' %}
+            <span class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Recontactar</span>
+        {% else %}
+            <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">{{ consulta.get_estado_display }}</span>
+        {% endif %}
+    </div>
+    <a href="{% url 'consultas:edit' consulta.pk %}"
+       class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+        Editar
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Consulta</h2>
+            <dl class="grid grid-cols-2 gap-4 text-sm">
+                <div><dt class="text-gray-400">Fecha</dt><dd class="font-medium mt-1">{{ consulta.fecha|date:"d/m/Y" }}</dd></div>
+                <div><dt class="text-gray-400">Canal</dt><dd class="font-medium mt-1">{{ consulta.get_via_entrada_display }}</dd></div>
+                <div class="col-span-2"><dt class="text-gray-400">Productos</dt><dd class="font-medium mt-1">{{ consulta.productos }}</dd></div>
+                {% if consulta.cantidad %}<div><dt class="text-gray-400">Cantidad</dt><dd class="font-medium mt-1">{{ consulta.cantidad }}</dd></div>{% endif %}
+                {% if consulta.numero_cotizacion %}<div><dt class="text-gray-400">Nº Cotización</dt><dd class="font-medium mt-1">{{ consulta.numero_cotizacion }}</dd></div>{% endif %}
+            </dl>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Cliente</h2>
+            <dl class="grid grid-cols-2 gap-4 text-sm">
+                {% if consulta.razon_social %}<div class="col-span-2"><dt class="text-gray-400">Razón Social</dt><dd class="font-medium mt-1">{{ consulta.razon_social }}</dd></div>{% endif %}
+                {% if consulta.contacto %}<div><dt class="text-gray-400">Contacto</dt><dd class="font-medium mt-1">{{ consulta.contacto }}</dd></div>{% endif %}
+                {% if consulta.cuit %}<div><dt class="text-gray-400">CUIT</dt><dd class="font-medium mt-1">{{ consulta.cuit }}</dd></div>{% endif %}
+                {% if consulta.telefono %}
+                <div>
+                    <dt class="text-gray-400">Teléfono</dt>
+                    <dd class="font-medium mt-1">
+                        <a href="https://wa.me/54{{ consulta.telefono|cut:' '|cut:'-'|cut:'+'|cut:'9' }}" target="_blank" class="text-green-600 hover:underline">{{ consulta.telefono }}</a>
+                    </dd>
+                </div>
+                {% endif %}
+                {% if consulta.email %}<div><dt class="text-gray-400">Email</dt><dd class="font-medium mt-1"><a href="mailto:{{ consulta.email }}" class="text-blue-600 hover:underline">{{ consulta.email }}</a></dd></div>{% endif %}
+            </dl>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Registrar seguimiento</h2>
+            <form method="post">
+                {% csrf_token %}
+                {{ seg_form.nota }}
+                <button type="submit" class="mt-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                    Registrar
+                </button>
+            </form>
+
+            {% if consulta.logs.all %}
+            <div class="mt-6 space-y-3">
+                {% for log in consulta.logs.all %}
+                <div class="border-l-2 border-gray-200 pl-4 py-1">
+                    <p class="text-sm text-gray-800">{{ log.nota }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ log.fecha|date:"d/m/Y H:i" }} — {{ log.user.get_full_name|default:log.user.email }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Seguimiento</h2>
+            <div class="space-y-2 text-sm">
+                <div>
+                    <span class="text-gray-400">Vendedor</span>
+                    <p class="font-medium">{{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }}</p>
+                </div>
+                {% if consulta.fecha_seguimiento %}
+                <div>
+                    <span class="text-gray-400">Próximo contacto</span>
+                    <p class="font-medium {% if consulta.seguimiento_vencido %}text-amber-600{% endif %}">
+                        {{ consulta.fecha_seguimiento|date:"d/m/Y" }}
+                        {% if consulta.seguimiento_vencido %}⚠{% endif %}
+                    </p>
+                </div>
+                {% endif %}
+                {% if consulta.notas %}
+                <div>
+                    <span class="text-gray-400">Notas</span>
+                    <p class="mt-1 text-gray-700 whitespace-pre-line">{{ consulta.notas }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
