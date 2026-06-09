@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     # local
     'accounts',
     'consultas',
+    'productos',
     'theme',
 ]
 
