@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Importar cotización - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'consultas:list' %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+        <h1 class="text-2xl font-bold text-gray-900">Importar cotización desde PDF</h1>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <p class="text-sm text-gray-500 mb-6">
+            Subí una cotización generada por Supply Argentina para extraer automáticamente los datos.
+            Vas a poder revisar y editar todo antes de guardar.
+        </p>
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Archivo PDF</label>
+                <input type="file" name="pdf_file" accept=".pdf" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700
+                           file:mr-4 file:py-1 file:px-3 file:rounded file:border-0
+                           file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700
+                           hover:file:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit"
+                class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                Extraer datos
+            </button>
+        </form>
+    </div>
+
+    <p class="text-xs text-gray-400 mt-4">
+        Se extraen: número de cotización, fecha, razón social, CUIT y descripción del producto.
+        El estado se carga como <strong>Cotizado</strong> por defecto.
+    </p>
+</div>
+{% endblock %}

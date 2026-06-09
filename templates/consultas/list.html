@@ -8,10 +8,16 @@
         <h1 class="text-2xl font-bold text-gray-900">Consultas</h1>
         <p class="text-sm text-gray-500 mt-1">{{ total }} resultado{{ total|pluralize }}</p>
     </div>
-    <a href="{% url 'consultas:create' %}"
-       class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-        + Nueva consulta
-    </a>
+    <div class="flex gap-2">
+        <a href="{% url 'consultas:import_pdf' %}"
+           class="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+            Importar PDF
+        </a>
+        <a href="{% url 'consultas:create' %}"
+           class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            + Nueva consulta
+        </a>
+    </div>
 </div>
 
 <form method="get" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">

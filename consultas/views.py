@@ -1,12 +1,58 @@
+import re
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
 
 from accounts.mixins import GerenteRequiredMixin
 from .forms import ConsultaForm, FiltroConsultaForm, SeguimientoForm
 from .models import Consulta
+
+_MESES_ES = {
+    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+    'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+    'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
+}
+
+
+def _extraer_datos_cotizacion(pdf_file):
+    import pdfplumber
+
+    with pdfplumber.open(pdf_file) as pdf:
+        text = pdf.pages[0].extract_text() or '' if pdf.pages else ''
+
+    data = {'estado': 'cotizado', 'via_entrada': 'mail'}
+
+    # "Cotización 8366 — BERTINO MARIA PAULA— 27-27143554-7"
+    m = re.search(
+        r'Cotizaci[oó]n\s+(\d+)\s*[—–]+\s*(.+?)\s*[—–]+\s*(\d{2}-\d{8}-\d)',
+        text,
+    )
+    if m:
+        data['numero_cotizacion'] = m.group(1)
+        razon = m.group(2).strip()
+        data['razon_social'] = razon
+        data['contacto'] = razon
+        data['cuit'] = m.group(3).strip()
+
+    # "02 de junio 2026"
+    m = re.search(r'(\d{1,2})\s+de\s+(\w+)\s+(\d{4})', text, re.IGNORECASE)
+    if m:
+        mes = _MESES_ES.get(m.group(2).lower())
+        if mes:
+            data['fecha'] = f"{m.group(3)}-{mes:02d}-{int(m.group(1)):02d}"
+
+    # Product: line immediately after the "Cotización N —..." line
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    for i, line in enumerate(lines):
+        if re.search(r'Cotizaci[oó]n\s+\d+', line) and i + 1 < len(lines):
+            data['productos'] = lines[i + 1].rstrip(':')
+            break
+
+    return data
 
 
 class ConsultaListView(LoginRequiredMixin, View):
@@ -109,4 +155,28 @@ class ConsultaEditView(LoginRequiredMixin, View):
             'form': form,
             'title': 'Editar consulta',
             'consulta': consulta,
+        })
+
+
+class ConsultaImportPDFView(LoginRequiredMixin, View):
+    def get(self, request):
+        return render(request, 'consultas/import_pdf.html')
+
+    def post(self, request):
+        pdf_file = request.FILES.get('pdf_file')
+        if not pdf_file:
+            messages.error(request, 'Seleccioná un archivo PDF.')
+            return render(request, 'consultas/import_pdf.html')
+
+        try:
+            data = _extraer_datos_cotizacion(pdf_file)
+        except Exception:
+            messages.error(request, 'No se pudo leer el PDF. Verificá que sea un archivo válido.')
+            return render(request, 'consultas/import_pdf.html')
+
+        form = ConsultaForm(initial=data)
+        return render(request, 'consultas/form.html', {
+            'form': form,
+            'title': 'Importar cotización desde PDF',
+            'form_action': reverse('consultas:create'),
         })

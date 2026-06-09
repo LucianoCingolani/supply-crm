@@ -9,7 +9,7 @@
         <h1 class="text-2xl font-bold text-gray-900">{{ title }}</h1>
     </div>
 
-    <form method="post" class="space-y-6">
+    <form method="post"{% if form_action %} action="{{ form_action }}"{% endif %} class="space-y-6">
         {% csrf_token %}
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
