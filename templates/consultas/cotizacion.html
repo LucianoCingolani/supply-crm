@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Cotización — {{ consulta.razon_social|default:"Sin empresa" }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'consultas:detail' consulta.pk %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+        <div>
+            <h1 class="text-xl font-bold text-gray-900">Cotización{% if consulta.numero_cotizacion %} Nº {{ consulta.numero_cotizacion }}{% endif %}</h1>
+            <p class="text-sm text-gray-500">{{ consulta.razon_social|default:consulta.contacto|default:"Sin empresa" }}{% if consulta.cuit %} — {{ consulta.cuit }}{% endif %}</p>
+        </div>
+    </div>
+    {% if consulta.lineas.all %}
+    <a href="{% url 'consultas:cotizacion_pdf' consulta.pk %}"
+       class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+        Descargar PDF
+    </a>
+    {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Líneas actuales -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Líneas de cotización</h2>
+            </div>
+            {% if consulta.lineas.all %}
+            <table class="min-w-full text-sm divide-y divide-gray-100">
+                <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Descripción</th>
+                        <th class="px-4 py-3 text-right">Cant.</th>
+                        <th class="px-4 py-3 text-right">Precio unit.</th>
+                        <th class="px-4 py-3 text-right">Subtotal</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for linea in consulta.lineas.all %}
+                    <tr>
+                        <td class="px-4 py-3 text-gray-900">{{ linea.descripcion }}</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ linea.cantidad }}</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ linea.precio_unitario }}</td>
+                        <td class="px-4 py-3 text-right font-medium text-gray-900">{{ linea.subtotal }}</td>
+                        <td class="px-4 py-3 text-right">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="linea_id" value="{{ linea.pk }}">
+                                <button type="submit" class="text-red-400 hover:text-red-600 text-xs">Quitar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="px-6 py-8 text-center text-gray-400 text-sm">Todavía no hay productos. Agregá una línea abajo.</p>
+            {% endif %}
+        </div>
+
+        <!-- Agregar línea -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Agregar producto</h2>
+            <form method="post" id="form-add" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <input type="hidden" name="producto_id" id="producto_id">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Buscar en catálogo</label>
+                    <select id="selector-producto"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="">— Seleccioná un producto —</option>
+                        {% regroup productos by categoria as grupos %}
+                        {% for grupo in grupos %}
+                        <optgroup label="{{ grupo.grouper }}">
+                            {% for p in grupo.list %}
+                            <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}">
+                                {{ p.codigo }} — {{ p.nombre }}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Descripción <span class="text-gray-400 font-normal">(podés editarla)</span></label>
+                    <input type="text" name="descripcion" id="descripcion" required
+                        placeholder="Ej: Pallet plástico semi ventilado 100x120 — P61"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                        <input type="number" name="cantidad" id="cantidad" value="1" min="0.01" step="0.01" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Precio unitario</label>
+                        <input type="number" name="precio_unitario" id="precio_unitario" min="0.01" step="0.01" required
+                            placeholder="0.00"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                    <span class="text-sm text-gray-500">Subtotal: <strong id="preview-subtotal">—</strong></span>
+                    <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                        Agregar línea
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Totales -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Totales</h2>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Subtotal neto</span>
+                    <span class="font-medium">{{ total_neto }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">IVA 21%</span>
+                    <span class="font-medium">{{ iva }}</span>
+                </div>
+                <div class="flex justify-between border-t border-gray-100 pt-2 mt-2">
+                    <span class="font-semibold text-gray-900">Total c/ IVA</span>
+                    <span class="font-bold text-gray-900 text-base">{{ total_con_iva }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 rounded-xl border border-gray-100 p-4 text-xs text-gray-500 space-y-1">
+            <p><strong>Nº cotización:</strong> {{ consulta.numero_cotizacion|default:"—" }}</p>
+            <p><strong>Fecha:</strong> {{ consulta.fecha|date:"d/m/Y" }}</p>
+            <p><strong>Vendedor:</strong> {{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }}</p>
+        </div>
+    </div>
+</div>
+
+<script>
+const selector = document.getElementById('selector-producto');
+const descripcionInput = document.getElementById('descripcion');
+const precioInput = document.getElementById('precio_unitario');
+const cantidadInput = document.getElementById('cantidad');
+const productoIdInput = document.getElementById('producto_id');
+const previewSubtotal = document.getElementById('preview-subtotal');
+
+selector.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (opt.value) {
+        productoIdInput.value = opt.value;
+        descripcionInput.value = opt.dataset.nombre;
+        const precio = parseFloat(opt.dataset.precio);
+        if (precio > 0) precioInput.value = precio.toFixed(2);
+    } else {
+        productoIdInput.value = '';
+    }
+    updatePreview();
+});
+
+function updatePreview() {
+    const cant = parseFloat(cantidadInput.value) || 0;
+    const precio = parseFloat(precioInput.value) || 0;
+    const sub = cant * precio;
+    previewSubtotal.textContent = sub > 0 ? sub.toFixed(2) : '—';
+}
+
+cantidadInput.addEventListener('input', updatePreview);
+precioInput.addEventListener('input', updatePreview);
+</script>
+{% endblock %}

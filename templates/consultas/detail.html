@@ -17,10 +17,16 @@
             <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">{{ consulta.get_estado_display }}</span>
         {% endif %}
     </div>
-    <a href="{% url 'consultas:edit' consulta.pk %}"
-       class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
-        Editar
-    </a>
+    <div class="flex gap-2">
+        <a href="{% url 'consultas:cotizacion' consulta.pk %}"
+           class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+            Generar cotización
+        </a>
+        <a href="{% url 'consultas:edit' consulta.pk %}"
+           class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+            Editar
+        </a>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

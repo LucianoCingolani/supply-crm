@@ -1,15 +1,20 @@
+import json
 import re
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
 
 from accounts.mixins import GerenteRequiredMixin
+from productos.models import Producto
 from .forms import ConsultaForm, FiltroConsultaForm, SeguimientoForm
-from .models import Consulta
+from .models import Consulta, LineaCotizacion
 
 _MESES_ES = {
     'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
@@ -156,6 +161,78 @@ class ConsultaEditView(LoginRequiredMixin, View):
             'title': 'Editar consulta',
             'consulta': consulta,
         })
+
+
+class CotizacionView(LoginRequiredMixin, View):
+    def _get_consulta(self, request, pk):
+        qs = Consulta.objects.all() if request.user.is_gerente else Consulta.objects.filter(vendedor=request.user)
+        return get_object_or_404(qs.prefetch_related('lineas__producto'), pk=pk)
+
+    def get(self, request, pk):
+        consulta = self._get_consulta(request, pk)
+        productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
+        productos_json = json.dumps([
+            {'id': p.pk, 'nombre': p.nombre, 'precio': float(p.precio) if p.precio else 0}
+            for p in productos
+        ])
+        total_neto = sum(l.subtotal for l in consulta.lineas.all())
+        return render(request, 'consultas/cotizacion.html', {
+            'consulta': consulta,
+            'productos': productos,
+            'productos_json': productos_json,
+            'total_neto': total_neto,
+            'iva': total_neto * Decimal('0.21'),
+            'total_con_iva': total_neto * Decimal('1.21'),
+        })
+
+    def post(self, request, pk):
+        consulta = self._get_consulta(request, pk)
+        action = request.POST.get('action')
+
+        if action == 'add':
+            descripcion = request.POST.get('descripcion', '').strip()
+            try:
+                cantidad = Decimal(request.POST.get('cantidad', '1'))
+                precio = Decimal(request.POST.get('precio_unitario', '0'))
+            except InvalidOperation:
+                messages.error(request, 'Cantidad o precio inválido.')
+                return redirect('consultas:cotizacion', pk=pk)
+            if not descripcion or precio <= 0:
+                messages.error(request, 'Completá descripción y precio.')
+                return redirect('consultas:cotizacion', pk=pk)
+            linea = LineaCotizacion(consulta=consulta, descripcion=descripcion,
+                                    cantidad=cantidad, precio_unitario=precio)
+            prod_id = request.POST.get('producto_id')
+            if prod_id:
+                linea.producto = Producto.objects.filter(pk=prod_id).first()
+            linea.save()
+
+        elif action == 'delete':
+            LineaCotizacion.objects.filter(consulta=consulta, pk=request.POST.get('linea_id')).delete()
+
+        return redirect('consultas:cotizacion', pk=pk)
+
+
+class CotizacionPDFView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        qs = Consulta.objects.all() if request.user.is_gerente else Consulta.objects.filter(vendedor=request.user)
+        consulta = get_object_or_404(qs.prefetch_related('lineas__producto'), pk=pk)
+
+        total_neto = sum(l.subtotal for l in consulta.lineas.all())
+        html = render_to_string('consultas/cotizacion_pdf.html', {
+            'consulta': consulta,
+            'total_neto': total_neto,
+            'iva': total_neto * Decimal('0.21'),
+            'total_con_iva': total_neto * Decimal('1.21'),
+            'request': request,
+        })
+        import weasyprint
+        pdf_bytes = weasyprint.HTML(string=html).write_pdf()
+
+        nombre = f"Cotizacion_{consulta.numero_cotizacion or consulta.pk}.pdf"
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{nombre}"'
+        return response
 
 
 class ConsultaImportPDFView(LoginRequiredMixin, View):

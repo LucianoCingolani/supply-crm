@@ -105,3 +105,25 @@ class SeguimientoLog(models.Model):
 
     def __str__(self):
         return f"{self.fecha:%d/%m/%Y %H:%M} — {self.user}"
+
+
+class LineaCotizacion(models.Model):
+    consulta = models.ForeignKey(Consulta, on_delete=models.CASCADE, related_name='lineas')
+    producto = models.ForeignKey(
+        'productos.Producto', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+    )
+    descripcion = models.CharField(max_length=300)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['orden', 'id']
+
+    @property
+    def subtotal(self):
+        return self.cantidad * self.precio_unitario
+
+    def __str__(self):
+        return f"{self.descripcion} x{self.cantidad}"
