@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from productos.models import Producto
 
@@ -24,10 +25,13 @@ class Command(BaseCommand):
             self.stderr.write('Instalá openpyxl: pip install openpyxl')
             return
 
+        self.stdout.write('Leyendo Excel...')
         wb = openpyxl.load_workbook(options['archivo'])
         ws = wb.active
 
-        creados = actualizados = saltados = 0
+        objetos = []
+        saltados = 0
+        now = timezone.now()
 
         for row in ws.iter_rows(values_only=True, min_row=3):
             codigo_raw, nombre_raw, cat_raw, subcat_raw, precio_raw = (row + (None,) * 5)[:5]
@@ -48,21 +52,24 @@ class Command(BaseCommand):
                 except InvalidOperation:
                     pass
 
-            _, created = Producto.objects.update_or_create(
+            objetos.append(Producto(
                 codigo=codigo,
-                defaults={
-                    'nombre': nombre,
-                    'categoria': _limpiar(cat_raw),
-                    'subcategoria': _limpiar(subcat_raw),
-                    'precio': precio,
-                },
-            )
+                nombre=nombre,
+                categoria=_limpiar(cat_raw),
+                subcategoria=_limpiar(subcat_raw),
+                precio=precio,
+                updated_at=now,
+            ))
 
-            if created:
-                creados += 1
-            else:
-                actualizados += 1
+        self.stdout.write(f'Importando {len(objetos)} productos a la base de datos...')
+
+        resultado = Producto.objects.bulk_create(
+            objetos,
+            update_conflicts=True,
+            update_fields=['nombre', 'categoria', 'subcategoria', 'precio', 'updated_at'],
+            unique_fields=['codigo'],
+        )
 
         self.stdout.write(self.style.SUCCESS(
-            f'Importación completada: {creados} creados, {actualizados} actualizados, {saltados} saltados.'
+            f'Listo: {len(resultado)} productos procesados, {saltados} filas saltadas.'
         ))
