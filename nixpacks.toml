@@ -1,5 +1,2 @@
-[phases.setup]
-nixPkgs = ["pango", "harfbuzz", "fontconfig", "freetype", "cairo", "gdk-pixbuf", "libffi"]
-
 [start]
 cmd = "gunicorn config.wsgi --log-file -"
