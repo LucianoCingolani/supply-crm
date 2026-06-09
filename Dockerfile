@@ -18,6 +18,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --no-input
+RUN SECRET_KEY=build-only-not-used-at-runtime python manage.py collectstatic --no-input
 
 CMD gunicorn config.wsgi --log-file -
