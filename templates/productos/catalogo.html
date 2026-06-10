@@ -4,13 +4,32 @@
 
 {% block content %}
 
-<!-- Spinner: visible hasta que window.load dispara (todas las imágenes cargadas) -->
-<div id="page-loader" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-100">
-  <div class="flex flex-col items-center gap-3">
-    <div class="w-12 h-12 rounded-full border-4 border-gray-200 border-t-blue-600 animate-spin"></div>
-    <span class="text-sm text-gray-500 font-medium">Cargando productos…</span>
+{% if productos %}
+<!-- Modal bloqueante: estilos inline para no depender del CSS compilado -->
+<div id="page-loader" style="
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;">
+  <div style="
+    background: white; border-radius: 16px;
+    padding: 40px 56px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+    <!-- Spinner CSS puro -->
+    <div style="
+      width: 48px; height: 48px; margin: 0 auto 16px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;">
+    </div>
+    <p style="color: #374151; font-size: 15px; font-weight: 500; margin: 0 0 4px;">Cargando productos…</p>
+    <p id="loader-counter" style="color: #9ca3af; font-size: 13px; margin: 0;">0 / {{ productos|length }}</p>
   </div>
 </div>
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endif %}
 
 <div class="flex items-center justify-between mb-6">
   <div>
@@ -49,7 +68,6 @@
   <!-- Contenido principal -->
   <div class="flex-1 min-w-0">
 
-    <!-- Buscador -->
     <form method="get" class="mb-5 flex gap-2">
       {% if categoria_activa %}
       <input type="hidden" name="categoria" value="{{ categoria_activa }}">
@@ -74,14 +92,13 @@
       {% for p in productos %}
       <a href="{% url 'productos:detail' p.pk %}"
          class="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all overflow-hidden group">
-
-        <!-- Foto con skeleton -->
         <div class="h-40 bg-gray-100 flex items-center justify-center border-b border-gray-100 overflow-hidden relative">
           {% if p.foto %}
           <div class="absolute inset-0 bg-gray-200 animate-pulse" data-skeleton></div>
           <img src="{% url 'consultas:producto_foto' p.pk %}"
                alt="{{ p.nombre }}"
-               class="relative max-h-full max-w-full object-contain p-3 opacity-0 transition-opacity duration-300 group-hover:scale-105 transition-transform">
+               data-product-img
+               class="relative max-h-full max-w-full object-contain p-3 opacity-0 transition-opacity duration-300 group-hover:scale-105">
           {% else %}
           <div class="flex flex-col items-center text-gray-300">
             <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,8 +109,6 @@
           </div>
           {% endif %}
         </div>
-
-        <!-- Info -->
         <div class="p-4">
           <p class="text-xs text-gray-400 font-mono mb-1">{{ p.codigo }}</p>
           <p class="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{{ p.nombre }}</p>
@@ -119,30 +134,50 @@
 </div>
 
 <script>
-  // Cada imagen: fade-in al cargar, ocultar skeleton
-  document.querySelectorAll('img[alt]').forEach(function(img) {
-    var skeleton = img.previousElementSibling;
-    function reveal() {
-      img.style.opacity = '1';
-      if (skeleton && skeleton.dataset.skeleton !== undefined) {
-        skeleton.style.display = 'none';
-      }
-    }
-    if (img.complete) {
-      reveal();
-    } else {
-      img.addEventListener('load', reveal);
-      img.addEventListener('error', reveal); // si falla igual esconder skeleton
-    }
-  });
+(function () {
+  var loader  = document.getElementById('page-loader');
+  var counter = document.getElementById('loader-counter');
+  if (!loader) return;
 
-  // Ocultar spinner cuando todas las imágenes terminaron
-  window.addEventListener('load', function() {
-    var loader = document.getElementById('page-loader');
-    loader.style.transition = 'opacity 0.3s';
+  var imgs = Array.from(document.querySelectorAll('[data-product-img]'));
+  var total = imgs.length;
+
+  if (total === 0) {
+    loader.style.display = 'none';
+    return;
+  }
+
+  var loaded = 0;
+
+  function tick() {
+    loaded++;
+    if (counter) counter.textContent = loaded + ' / ' + total;
+
+    // revelar imagen individualmente
+    this.style.opacity = '1';
+    var skeleton = this.previousElementSibling;
+    if (skeleton && skeleton.dataset.skeleton !== undefined) {
+      skeleton.style.display = 'none';
+    }
+
+    if (loaded >= total) dismiss();
+  }
+
+  function dismiss() {
+    loader.style.transition = 'opacity 0.35s';
     loader.style.opacity = '0';
-    setTimeout(function() { loader.style.display = 'none'; }, 300);
+    setTimeout(function () { loader.style.display = 'none'; }, 380);
+  }
+
+  imgs.forEach(function (img) {
+    if (img.complete && img.naturalWidth > 0) {
+      tick.call(img);
+    } else {
+      img.addEventListener('load',  tick);
+      img.addEventListener('error', tick); // cuenta aunque falle
+    }
   });
+})();
 </script>
 
 {% endblock %}
