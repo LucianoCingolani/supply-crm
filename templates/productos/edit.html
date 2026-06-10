@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Editar {{ producto.nombre }} - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-center gap-3">
+  <a href="{% url 'productos:detail' producto.pk %}" class="text-sm text-gray-400 hover:text-gray-600">← Volver</a>
+  <span class="text-gray-300">/</span>
+  <span class="text-sm text-gray-500">Editar producto</span>
+</div>
+
+<div class="max-w-2xl">
+  <h1 class="text-xl font-bold text-gray-900 mb-6">Editar producto</h1>
+
+  <form method="post" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- Nombre -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Datos generales</h2>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Código</label>
+        <input type="text" value="{{ producto.codigo }}" disabled
+               class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-400 cursor-not-allowed">
+        <p class="text-xs text-gray-400 mt-1">El código no se puede modificar (es la clave única del producto).</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+        <input type="text" name="nombre" value="{{ producto.nombre }}" required
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Precio unitario <span class="text-gray-400 font-normal">(sin IVA)</span></label>
+        <input type="text" name="precio" value="{{ producto.precio|default:'' }}"
+               placeholder="Ej: 150000.00"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Especificaciones <span class="text-gray-400 font-normal">(una por línea)</span></label>
+        <textarea name="especificaciones" rows="6"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono">{{ producto.especificaciones }}</textarea>
+      </div>
+    </div>
+
+    <!-- Foto -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Foto</h2>
+
+      <!-- Preview actual -->
+      <div class="flex items-start gap-6">
+        <div class="w-40 h-40 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+          {% if producto.foto %}
+          <img id="foto-preview"
+               src="{% url 'consultas:producto_foto' producto.pk %}"
+               alt="{{ producto.nombre }}"
+               class="max-w-full max-h-full object-contain p-2">
+          {% else %}
+          <div id="foto-preview" class="flex flex-col items-center text-gray-300">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span class="text-xs mt-1">Sin foto</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="flex-1 space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Subir nueva foto</label>
+            <input type="file" name="foto" accept="image/*" id="foto-input"
+                   class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+            <p class="text-xs text-gray-400 mt-1">JPG, PNG o WEBP. Reemplaza la foto actual.</p>
+          </div>
+
+          {% if producto.foto %}
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="borrar_foto" value="1"
+                   class="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400">
+            <span class="text-sm text-red-600">Borrar foto actual (sin reemplazar)</span>
+          </label>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+              class="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+        Guardar cambios
+      </button>
+      <a href="{% url 'productos:detail' producto.pk %}"
+         class="px-6 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Preview inmediato al seleccionar archivo
+  document.getElementById('foto-input').addEventListener('change', function () {
+    var file = this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var prev = document.getElementById('foto-preview');
+      if (prev.tagName === 'IMG') {
+        prev.src = e.target.result;
+      } else {
+        var img = document.createElement('img');
+        img.id = 'foto-preview';
+        img.src = e.target.result;
+        img.className = 'max-w-full max-h-full object-contain p-2';
+        prev.replaceWith(img);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+</script>
+{% endblock %}

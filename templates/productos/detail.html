@@ -3,8 +3,14 @@
 {% block title %}{{ producto.nombre }} - Catálogo{% endblock %}
 
 {% block content %}
-<div class="mb-5">
-  <a href="{% url 'productos:catalogo' %}" class="text-sm text-gray-400 hover:text-gray-600">← Volver al catálogo</a>
+<div class="mb-5 flex items-center justify-between">
+  <a href="{% url 'productos:catalogo' %}?categoria={{ producto.categoria|urlencode }}" class="text-sm text-gray-400 hover:text-gray-600">← Volver al catálogo</a>
+  {% if user.is_gerente %}
+  <a href="{% url 'productos:edit' producto.pk %}"
+     class="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">
+    Editar producto
+  </a>
+  {% endif %}
 </div>
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden max-w-3xl">
