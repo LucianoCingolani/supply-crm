@@ -1,6 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
-from django.shortcuts import get_object_or_404, render
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views import View
 
 from .models import Producto
@@ -8,11 +9,23 @@ from .models import Producto
 
 class CatalogoView(LoginRequiredMixin, View):
     def get(self, request):
-        qs = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
-
         q = request.GET.get('q', '').strip()
         categoria = request.GET.get('categoria', '').strip()
 
+        categorias = (
+            Producto.objects.filter(activo=True)
+            .values('categoria')
+            .annotate(total=Count('id'))
+            .order_by('categoria')
+        )
+
+        # Sin filtro activo: redirigir a la primera categoría
+        if not categoria and not q:
+            primera = categorias.first()
+            if primera:
+                return redirect(f"{reverse('productos:catalogo')}?categoria={primera['categoria']}")
+
+        qs = Producto.objects.filter(activo=True).order_by('nombre')
         if q:
             qs = qs.filter(
                 Q(nombre__icontains=q) |
@@ -21,15 +34,6 @@ class CatalogoView(LoginRequiredMixin, View):
             )
         if categoria:
             qs = qs.filter(categoria=categoria)
-
-        # categorías con cantidad para el sidebar
-        from django.db.models import Count
-        categorias = (
-            Producto.objects.filter(activo=True)
-            .values('categoria')
-            .annotate(total=Count('id'))
-            .order_by('categoria')
-        )
 
         return render(request, 'productos/catalogo.html', {
             'productos': qs,
