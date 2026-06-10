@@ -235,6 +235,111 @@ class CotizacionPDFView(LoginRequiredMixin, View):
         return response
 
 
+class NuevaCotizacionView(LoginRequiredMixin, View):
+    """Crea una cotización standalone: arma la Consulta en el fondo automáticamente."""
+
+    def _productos_ctx(self):
+        productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
+        productos_json = json.dumps([
+            {'id': p.pk, 'nombre': p.nombre, 'precio': float(p.precio) if p.precio else 0}
+            for p in productos
+        ])
+        return productos, productos_json
+
+    def get(self, request):
+        import datetime
+        productos, productos_json = self._productos_ctx()
+        return render(request, 'consultas/nueva_cotizacion.html', {
+            'productos': productos,
+            'productos_json': productos_json,
+            'hoy': datetime.date.today().isoformat(),
+        })
+
+    def post(self, request):
+        import datetime
+
+        # ── datos del cliente ──
+        razon_social = request.POST.get('razon_social', '').strip()
+        cuit         = request.POST.get('cuit', '').strip()
+        contacto     = request.POST.get('contacto', '').strip()
+        telefono     = request.POST.get('telefono', '').strip()
+        email        = request.POST.get('email', '').strip()
+        nro_cot      = request.POST.get('numero_cotizacion', '').strip()
+        fecha_str    = request.POST.get('fecha', '')
+        via          = request.POST.get('via_entrada', 'mail')
+
+        try:
+            fecha = datetime.date.fromisoformat(fecha_str)
+        except (ValueError, TypeError):
+            fecha = datetime.date.today()
+
+        # ── líneas enviadas como campos indexados ──
+        lineas = []
+        i = 0
+        while True:
+            desc   = request.POST.get(f'linea_desc_{i}', '').strip()
+            cant   = request.POST.get(f'linea_cant_{i}', '')
+            precio = request.POST.get(f'linea_precio_{i}', '')
+            prod_id = request.POST.get(f'linea_prod_{i}', '')
+            if not desc and not cant:
+                break
+            try:
+                cant_d   = Decimal(cant)
+                precio_d = Decimal(precio)
+            except InvalidOperation:
+                i += 1
+                continue
+            if desc and cant_d > 0 and precio_d > 0:
+                lineas.append({
+                    'descripcion': desc,
+                    'cantidad': cant_d,
+                    'precio_unitario': precio_d,
+                    'producto_id': prod_id or None,
+                })
+            i += 1
+
+        if not lineas:
+            productos, productos_json = self._productos_ctx()
+            messages.error(request, 'Agregá al menos un producto a la cotización.')
+            return render(request, 'consultas/nueva_cotizacion.html', {
+                'productos': productos,
+                'productos_json': productos_json,
+                'hoy': fecha_str,
+                'post': request.POST,
+            })
+
+        # ── primer producto como descripción de la Consulta ──
+        desc_consulta = lineas[0]['descripcion'][:300]
+
+        consulta = Consulta.objects.create(
+            fecha=fecha,
+            productos=desc_consulta,
+            numero_cotizacion=nro_cot,
+            via_entrada=via,
+            razon_social=razon_social,
+            contacto=contacto or razon_social,
+            cuit=cuit,
+            telefono=telefono,
+            email=email,
+            estado=Consulta.COTIZADO,
+            vendedor=request.user,
+        )
+
+        for idx, l in enumerate(lineas):
+            lc = LineaCotizacion(
+                consulta=consulta,
+                descripcion=l['descripcion'],
+                cantidad=l['cantidad'],
+                precio_unitario=l['precio_unitario'],
+                orden=idx,
+            )
+            if l['producto_id']:
+                lc.producto = Producto.objects.filter(pk=l['producto_id']).first()
+            lc.save()
+
+        return redirect('consultas:cotizacion', pk=consulta.pk)
+
+
 class ConsultaImportPDFView(LoginRequiredMixin, View):
     def get(self, request):
         return render(request, 'consultas/import_pdf.html')

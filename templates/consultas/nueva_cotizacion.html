@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva cotización - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'consultas:list' %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+    <h1 class="text-2xl font-bold text-gray-900">Nueva cotización</h1>
+  </div>
+
+  <form method="post" id="form-cotizacion" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- Datos del encabezado -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Encabezado</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nº Cotización</label>
+          <input type="text" name="numero_cotizacion" value="{{ post.numero_cotizacion|default:'' }}"
+            placeholder="Ej: 8367"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+          <input type="date" name="fecha" value="{{ post.fecha|default:hoy }}" required
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Canal de entrada</label>
+          <select name="via_entrada"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="mail"     {% if post.via_entrada == 'mail'     %}selected{% endif %}>Mail</option>
+            <option value="whatsapp" {% if post.via_entrada == 'whatsapp' %}selected{% endif %}>WhatsApp</option>
+            <option value="telefono" {% if post.via_entrada == 'telefono' %}selected{% endif %}>Teléfono</option>
+            <option value="recupero" {% if post.via_entrada == 'recupero' %}selected{% endif %}>Recuperé contacto</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Datos del cliente -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Cliente</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Razón Social <span class="text-red-400">*</span></label>
+          <input type="text" name="razon_social" value="{{ post.razon_social|default:'' }}" required
+            placeholder="Ej: BERTINO MARIA PAULA"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">CUIT</label>
+          <input type="text" name="cuit" value="{{ post.cuit|default:'' }}"
+            placeholder="Ej: 27-27143554-7"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Contacto</label>
+          <input type="text" name="contacto" value="{{ post.contacto|default:'' }}"
+            placeholder="Nombre de quien consulta"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+          <input type="text" name="telefono" value="{{ post.telefono|default:'' }}"
+            placeholder="Ej: 11 1234-5678"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" name="email" value="{{ post.email|default:'' }}"
+            placeholder="contacto@empresa.com"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+    </div>
+
+    <!-- Productos -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Productos</h2>
+
+      <!-- Selector para agregar -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-gray-500 mb-1">Buscar en catálogo</label>
+          <select id="selector-producto"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="">— Seleccioná un producto —</option>
+            {% regroup productos by categoria as grupos %}
+            {% for grupo in grupos %}
+            <optgroup label="{{ grupo.grouper }}">
+              {% for p in grupo.list %}
+              <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}">
+                {{ p.codigo }} — {{ p.nombre }}
+              </option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Cantidad</label>
+          <input type="number" id="add-cantidad" value="1" min="0.01" step="0.01"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Precio unit.</label>
+          <input type="number" id="add-precio" min="0.01" step="0.01" placeholder="0.00"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="md:col-span-3">
+          <label class="block text-xs font-medium text-gray-500 mb-1">Descripción <span class="text-gray-400">(editá si querés)</span></label>
+          <input type="text" id="add-descripcion" placeholder="Ej: Pallet plástico P61 — 100x120cm, color blanco"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-end">
+          <button type="button" id="btn-agregar"
+            class="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+            + Agregar
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabla de líneas -->
+      <div id="tabla-lineas-wrap">
+        <table class="min-w-full text-sm" id="tabla-lineas">
+          <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase">
+            <tr>
+              <th class="px-3 py-2 text-left">Descripción</th>
+              <th class="px-3 py-2 text-right w-20">Cant.</th>
+              <th class="px-3 py-2 text-right w-28">Precio unit.</th>
+              <th class="px-3 py-2 text-right w-28">Subtotal</th>
+              <th class="px-3 py-2 w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="lineas-tbody" class="divide-y divide-gray-100">
+            <!-- filas dinámicas -->
+          </tbody>
+        </table>
+        <p id="sin-lineas" class="py-6 text-center text-sm text-gray-400">Todavía no hay productos. Usá el selector de arriba para agregar.</p>
+      </div>
+
+      <!-- Totales -->
+      <div class="mt-4 flex justify-end">
+        <div class="w-56 text-sm space-y-1">
+          <div class="flex justify-between text-gray-500"><span>Subtotal neto</span><span id="tot-neto">—</span></div>
+          <div class="flex justify-between text-gray-500"><span>IVA 21%</span><span id="tot-iva">—</span></div>
+          <div class="flex justify-between font-bold text-gray-900 border-t border-gray-200 pt-1 mt-1">
+            <span>Total c/ IVA</span><span id="tot-total">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Campos ocultos para las líneas -->
+    <div id="campos-ocultos"></div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+        class="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+        Guardar y ver cotización
+      </button>
+      <a href="{% url 'consultas:list' %}"
+        class="px-6 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+const lineas = [];
+let lineaIdx = 0;
+
+const selector    = document.getElementById('selector-producto');
+const addCant     = document.getElementById('add-cantidad');
+const addPrecio   = document.getElementById('add-precio');
+const addDesc     = document.getElementById('add-descripcion');
+const btnAgregar  = document.getElementById('btn-agregar');
+const tbody       = document.getElementById('lineas-tbody');
+const sinLineas   = document.getElementById('sin-lineas');
+const camposOcult = document.getElementById('campos-ocultos');
+const totNeto     = document.getElementById('tot-neto');
+const totIva      = document.getElementById('tot-iva');
+const totTotal    = document.getElementById('tot-total');
+
+selector.addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  if (opt.value) {
+    addDesc.value = opt.dataset.nombre;
+    const precio = parseFloat(opt.dataset.precio);
+    if (precio > 0) addPrecio.value = precio.toFixed(2);
+  }
+});
+
+btnAgregar.addEventListener('click', function() {
+  const desc   = addDesc.value.trim();
+  const cant   = parseFloat(addCant.value);
+  const precio = parseFloat(addPrecio.value);
+  const prodId = selector.value;
+
+  if (!desc)        { addDesc.focus();   return; }
+  if (!cant || cant <= 0)   { addCant.focus();  return; }
+  if (!precio || precio <= 0) { addPrecio.focus(); return; }
+
+  const idx = lineaIdx++;
+  lineas.push({ idx, desc, cant, precio, prodId });
+  renderTabla();
+  // reset
+  selector.value   = '';
+  addDesc.value    = '';
+  addCant.value    = '1';
+  addPrecio.value  = '';
+  addDesc.focus();
+});
+
+function renderTabla() {
+  tbody.innerHTML = '';
+  camposOcult.innerHTML = '';
+  let neto = 0;
+
+  lineas.forEach((l, i) => {
+    const sub = l.cant * l.precio;
+    neto += sub;
+
+    // fila visible
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-gray-50';
+    tr.innerHTML = `
+      <td class="px-3 py-2 text-gray-900">${escHtml(l.desc)}</td>
+      <td class="px-3 py-2 text-right text-gray-600">${l.cant}</td>
+      <td class="px-3 py-2 text-right text-gray-600">${l.precio.toFixed(2)}</td>
+      <td class="px-3 py-2 text-right font-medium text-gray-900">${sub.toFixed(2)}</td>
+      <td class="px-3 py-2 text-center">
+        <button type="button" class="text-red-400 hover:text-red-600 text-xs" data-idx="${l.idx}">✕</button>
+      </td>`;
+    tbody.appendChild(tr);
+
+    // campos ocultos para el POST
+    const make = (name, val) => {
+      const inp = document.createElement('input');
+      inp.type  = 'hidden';
+      inp.name  = name;
+      inp.value = val;
+      camposOcult.appendChild(inp);
+    };
+    make(`linea_desc_${i}`,   l.desc);
+    make(`linea_cant_${i}`,   l.cant);
+    make(`linea_precio_${i}`, l.precio);
+    make(`linea_prod_${i}`,   l.prodId || '');
+  });
+
+  sinLineas.style.display = lineas.length ? 'none' : 'block';
+
+  if (lineas.length) {
+    const iva   = neto * 0.21;
+    const total = neto * 1.21;
+    totNeto.textContent  = neto.toFixed(2);
+    totIva.textContent   = iva.toFixed(2);
+    totTotal.textContent = total.toFixed(2);
+  } else {
+    totNeto.textContent = totIva.textContent = totTotal.textContent = '—';
+  }
+}
+
+// delegar el click en quitar
+tbody.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-idx]');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.idx);
+  const pos = lineas.findIndex(l => l.idx === idx);
+  if (pos !== -1) { lineas.splice(pos, 1); renderTabla(); }
+});
+
+document.getElementById('form-cotizacion').addEventListener('submit', function(e) {
+  if (lineas.length === 0) {
+    e.preventDefault();
+    alert('Agregá al menos un producto antes de guardar.');
+  }
+});
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}
