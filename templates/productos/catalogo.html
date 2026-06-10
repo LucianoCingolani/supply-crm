@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Catálogo de productos - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Catálogo de productos</h1>
+    <p class="text-sm text-gray-500 mt-1">{{ total }} producto{{ total|pluralize }}</p>
+  </div>
+</div>
+
+<div class="flex gap-6">
+
+  <!-- Sidebar categorías -->
+  <aside class="w-56 flex-shrink-0">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden sticky top-6">
+      <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Categorías</span>
+      </div>
+      <nav class="divide-y divide-gray-50">
+        <a href="{% url 'productos:catalogo' %}{% if q %}?q={{ q }}{% endif %}"
+           class="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors
+                  {% if not categoria_activa %}font-semibold text-blue-600{% else %}text-gray-700{% endif %}">
+          <span>Todos</span>
+        </a>
+        {% for cat in categorias %}
+        {% if cat.categoria %}
+        <a href="?categoria={{ cat.categoria|urlencode }}{% if q %}&q={{ q }}{% endif %}"
+           class="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors
+                  {% if categoria_activa == cat.categoria %}font-semibold text-blue-600 bg-blue-50{% else %}text-gray-700{% endif %}">
+          <span class="leading-tight">{{ cat.categoria }}</span>
+          <span class="ml-2 text-xs text-gray-400 flex-shrink-0">{{ cat.total }}</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Contenido principal -->
+  <div class="flex-1 min-w-0">
+
+    <!-- Buscador -->
+    <form method="get" class="mb-5 flex gap-2">
+      {% if categoria_activa %}
+      <input type="hidden" name="categoria" value="{{ categoria_activa }}">
+      {% endif %}
+      <input type="text" name="q" value="{{ q }}"
+             placeholder="Buscar por nombre, código o especificación…"
+             class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <button type="submit"
+              class="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700">
+        Buscar
+      </button>
+      {% if q or categoria_activa %}
+      <a href="{% url 'productos:catalogo' %}"
+         class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50">
+        Limpiar
+      </a>
+      {% endif %}
+    </form>
+
+    {% if productos %}
+    <!-- Grid de productos -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {% for p in productos %}
+      <a href="{% url 'productos:detail' p.pk %}"
+         class="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all overflow-hidden group">
+
+        <!-- Foto -->
+        <div class="h-40 bg-gray-50 flex items-center justify-center border-b border-gray-100 overflow-hidden">
+          {% if p.foto %}
+          <img src="{% url 'consultas:producto_foto' p.pk %}"
+               alt="{{ p.nombre }}"
+               class="max-h-full max-w-full object-contain p-3 group-hover:scale-105 transition-transform duration-200">
+          {% else %}
+          <div class="flex flex-col items-center text-gray-300">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span class="text-xs mt-1">Sin foto</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class="p-4">
+          <p class="text-xs text-gray-400 font-mono mb-1">{{ p.codigo }}</p>
+          <p class="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{{ p.nombre }}</p>
+          {% if p.categoria %}
+          <p class="text-xs text-blue-600 mt-1.5">{{ p.categoria }}</p>
+          {% endif %}
+          {% if p.precio %}
+          <p class="text-sm font-bold text-gray-800 mt-2">
+            ${{ p.precio|floatformat:2 }}
+            <span class="text-xs font-normal text-gray-400">+ IVA</span>
+          </p>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-400">
+      <p class="text-lg">No se encontraron productos.</p>
+      <a href="{% url 'productos:catalogo' %}" class="text-blue-600 text-sm mt-2 inline-block hover:underline">Ver todos</a>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

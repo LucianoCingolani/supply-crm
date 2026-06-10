@@ -25,5 +25,6 @@ urlpatterns = [
     path('', dashboard, name='dashboard'),
     path('accounts/', include('accounts.urls')),
     path('consultas/', include('consultas.urls')),
+    path('productos/', include('productos.urls')),
     path('__reload__/', include('django_browser_reload.urls')),
 ]
