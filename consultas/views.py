@@ -341,13 +341,16 @@ class NuevaCotizacionView(LoginRequiredMixin, View):
 
 
 class ProductoFotoView(LoginRequiredMixin, View):
-    """Sirve la foto binaria de un producto."""
+    """Sirve la foto binaria de un producto con caché de 7 días en el browser."""
     def get(self, request, pk):
         producto = get_object_or_404(Producto, pk=pk)
         if not producto.foto:
             from django.http import Http404
             raise Http404
-        return HttpResponse(bytes(producto.foto), content_type=producto.foto_tipo or 'image/jpeg')
+        response = HttpResponse(bytes(producto.foto), content_type=producto.foto_tipo or 'image/jpeg')
+        response['Cache-Control'] = 'private, max-age=604800'  # 7 días
+        response['Vary'] = 'Cookie'
+        return response
 
 
 class ConsultaImportPDFView(LoginRequiredMixin, View):
