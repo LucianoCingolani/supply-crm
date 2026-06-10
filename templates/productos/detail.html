@@ -13,11 +13,11 @@
   {% endif %}
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden max-w-3xl">
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
   <div class="flex flex-col md:flex-row">
 
     <!-- Foto -->
-    <div class="md:w-72 bg-gray-50 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-gray-100 flex-shrink-0">
+    <div class="md:w-80 bg-gray-50 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-gray-100 flex-shrink-0">
       {% if producto.foto %}
       <img src="{% url 'consultas:producto_foto' producto.pk %}"
            alt="{{ producto.nombre }}"
