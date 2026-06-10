@@ -31,7 +31,9 @@
   tbody tr:nth-child(even) { background: #fafafa; }
   tbody td { padding: 6px 8px; font-size: 9pt; vertical-align: top; }
   tbody td.right { text-align: right; }
-  tbody td.desc { max-width: 250px; }
+  tbody td.desc { max-width: 220px; }
+  tbody td.foto { width: 80px; text-align: center; }
+  tbody td.foto img { max-width: 72px; max-height: 54px; object-fit: contain; }
 
   /* ── TOTALS ── */
   .totals { margin-left: auto; width: 220px; margin-top: 4px; }
@@ -79,7 +81,8 @@
 <table>
   <thead>
     <tr>
-      <th style="width:55%">Descripción</th>
+      <th style="width:10%"></th>
+      <th style="width:45%">Descripción</th>
       <th class="right" style="width:13%">Cantidad</th>
       <th class="right" style="width:16%">Precio unit.</th>
       <th class="right" style="width:16%">Subtotal</th>
@@ -88,7 +91,21 @@
   <tbody>
     {% for linea in consulta.lineas.all %}
     <tr>
-      <td class="desc">{{ linea.descripcion }}</td>
+      <td class="foto">
+        {% if linea.producto.foto_data_uri %}
+        <img src="{{ linea.producto.foto_data_uri }}" alt="">
+        {% endif %}
+      </td>
+      <td class="desc">
+        <strong>{{ linea.descripcion }}</strong>
+        {% if linea.producto.especificaciones %}
+        <div style="font-size:7.5pt; color:#555; margin-top:3px; line-height:1.4;">
+          {% for spec in linea.producto.especificaciones.splitlines %}
+          {% if spec %}&bull; {{ spec }}<br>{% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </td>
       <td class="right">{{ linea.cantidad }}</td>
       <td class="right">u$s {{ linea.precio_unitario }} + IVA</td>
       <td class="right">u$s {{ linea.subtotal }}</td>

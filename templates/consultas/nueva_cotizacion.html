@@ -83,7 +83,8 @@
 
       <!-- Selector para agregar -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
-        <div class="md:col-span-2">
+        <div class="md:col-span-2 flex gap-3 items-start">
+          <div class="flex-1">
           <label class="block text-xs font-medium text-gray-500 mb-1">Buscar en catálogo</label>
           <select id="selector-producto"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
@@ -99,6 +100,8 @@
             </optgroup>
             {% endfor %}
           </select>
+          </div>
+          <img id="foto-preview" src="" alt="" class="hidden w-16 h-16 object-contain rounded border border-gray-200 bg-white mt-5">
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Cantidad</label>
@@ -186,12 +189,21 @@ const totNeto     = document.getElementById('tot-neto');
 const totIva      = document.getElementById('tot-iva');
 const totTotal    = document.getElementById('tot-total');
 
+const fotoPreview = document.getElementById('foto-preview');
+
 selector.addEventListener('change', function() {
   const opt = this.options[this.selectedIndex];
   if (opt.value) {
     addDesc.value = opt.dataset.nombre;
     const precio = parseFloat(opt.dataset.precio);
     if (precio > 0) addPrecio.value = precio.toFixed(2);
+    // foto preview
+    const fotoUrl = "{% url 'consultas:producto_foto' 0 %}".replace('0', opt.value);
+    fotoPreview.src = fotoUrl;
+    fotoPreview.classList.remove('hidden');
+    fotoPreview.onerror = () => fotoPreview.classList.add('hidden');
+  } else {
+    fotoPreview.classList.add('hidden');
   }
 });
 

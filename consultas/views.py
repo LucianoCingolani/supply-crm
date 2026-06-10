@@ -340,6 +340,16 @@ class NuevaCotizacionView(LoginRequiredMixin, View):
         return redirect('consultas:cotizacion', pk=consulta.pk)
 
 
+class ProductoFotoView(LoginRequiredMixin, View):
+    """Sirve la foto binaria de un producto."""
+    def get(self, request, pk):
+        producto = get_object_or_404(Producto, pk=pk)
+        if not producto.foto:
+            from django.http import Http404
+            raise Http404
+        return HttpResponse(bytes(producto.foto), content_type=producto.foto_tipo or 'image/jpeg')
+
+
 class ConsultaImportPDFView(LoginRequiredMixin, View):
     def get(self, request):
         return render(request, 'consultas/import_pdf.html')
