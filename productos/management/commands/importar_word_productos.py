@@ -39,7 +39,11 @@ def _limpiar_precio(texto):
 
 
 def _limpiar_codigo(texto):
-    return texto.replace('Código', '').replace('Codigo', '').replace('Código', '').strip()
+    texto = texto.replace('Código', '').replace('Codigo', '').replace('Código', '').strip()
+    texto = texto.lstrip(':').strip()
+    # quitar aclaraciones entre paréntesis al final  ej: "C259  (Bandeja de pan)"
+    texto = re.sub(r'\s*\(.*\)\s*$', '', texto).strip()
+    return texto[:50]
 
 
 class Command(BaseCommand):
