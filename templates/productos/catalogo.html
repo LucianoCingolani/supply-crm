@@ -4,15 +4,10 @@
 
 {% block content %}
 
-<!-- Overlay loader: visible hasta que window.load dispara -->
-<div id="page-loader"
-     class="fixed inset-0 z-50 flex items-center justify-center bg-gray-100 transition-opacity duration-300">
+<!-- Spinner: visible hasta que window.load dispara (todas las imágenes cargadas) -->
+<div id="page-loader" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-100">
   <div class="flex flex-col items-center gap-3">
-    <svg class="animate-spin w-10 h-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-    </svg>
+    <div class="w-12 h-12 rounded-full border-4 border-gray-200 border-t-blue-600 animate-spin"></div>
     <span class="text-sm text-gray-500 font-medium">Cargando productos…</span>
   </div>
 </div>
@@ -75,22 +70,18 @@
     </form>
 
     {% if productos %}
-    <!-- Grid de productos -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {% for p in productos %}
       <a href="{% url 'productos:detail' p.pk %}"
          class="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all overflow-hidden group">
 
-        <!-- Foto -->
-        <div class="h-40 bg-gray-50 flex items-center justify-center border-b border-gray-100 overflow-hidden relative">
+        <!-- Foto con skeleton -->
+        <div class="h-40 bg-gray-100 flex items-center justify-center border-b border-gray-100 overflow-hidden relative">
           {% if p.foto %}
-          <!-- Skeleton visible hasta que la imagen carga -->
-          <div class="skeleton absolute inset-0 bg-gray-200 animate-pulse"></div>
+          <div class="absolute inset-0 bg-gray-200 animate-pulse" data-skeleton></div>
           <img src="{% url 'consultas:producto_foto' p.pk %}"
                alt="{{ p.nombre }}"
-               loading="lazy"
-               class="relative max-h-full max-w-full object-contain p-3 group-hover:scale-105 transition-transform duration-200 opacity-0"
-               onload="this.classList.remove('opacity-0'); this.previousElementSibling.style.display='none'">
+               class="relative max-h-full max-w-full object-contain p-3 opacity-0 transition-opacity duration-300 group-hover:scale-105 transition-transform">
           {% else %}
           <div class="flex flex-col items-center text-gray-300">
             <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,17 +119,30 @@
 </div>
 
 <script>
-  // Ocultar loader cuando el DOM y todas las imágenes visibles terminaron de cargar
-  window.addEventListener('load', function () {
-    const loader = document.getElementById('page-loader');
-    loader.style.opacity = '0';
-    setTimeout(function () { loader.style.display = 'none'; }, 300);
+  // Cada imagen: fade-in al cargar, ocultar skeleton
+  document.querySelectorAll('img[alt]').forEach(function(img) {
+    var skeleton = img.previousElementSibling;
+    function reveal() {
+      img.style.opacity = '1';
+      if (skeleton && skeleton.dataset.skeleton !== undefined) {
+        skeleton.style.display = 'none';
+      }
+    }
+    if (img.complete) {
+      reveal();
+    } else {
+      img.addEventListener('load', reveal);
+      img.addEventListener('error', reveal); // si falla igual esconder skeleton
+    }
   });
-  // Fallback: ocultar a los 8 segundos por si alguna imagen tarda mucho
-  setTimeout(function () {
-    const loader = document.getElementById('page-loader');
-    if (loader) { loader.style.opacity = '0'; setTimeout(function () { loader.style.display = 'none'; }, 300); }
-  }, 8000);
+
+  // Ocultar spinner cuando todas las imágenes terminaron
+  window.addEventListener('load', function() {
+    var loader = document.getElementById('page-loader');
+    loader.style.transition = 'opacity 0.3s';
+    loader.style.opacity = '0';
+    setTimeout(function() { loader.style.display = 'none'; }, 300);
+  });
 </script>
 
 {% endblock %}
