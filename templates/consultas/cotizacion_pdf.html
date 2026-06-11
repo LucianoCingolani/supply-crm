@@ -58,34 +58,36 @@
 
   /* ── FICHAS DE PRODUCTO ── */
   .ficha {
-    display: flex; gap: 24px;
-    margin-bottom: 24px; padding-bottom: 22px;
-    border-bottom: 1px solid #ddd;
+    margin-bottom: 28px; padding-bottom: 28px;
+    border-bottom: 2px solid #e8e8e8;
     page-break-inside: avoid;
   }
   .ficha:last-child { border-bottom: none; margin-bottom: 0; }
 
+  /* Foto ocupa todo el ancho */
   .ficha-foto {
-    width: 260px; flex-shrink: 0;
+    width: 100%; height: 340px;
     display: flex; align-items: center; justify-content: center;
-    background: #f9f9f9; border: 1px solid #e0e0e0;
-    border-radius: 6px; padding: 14px; min-height: 200px;
+    background: #f7f7f7; border: 1px solid #e0e0e0;
+    border-radius: 8px; padding: 18px;
+    margin-bottom: 14px;
   }
-  .ficha-foto img { max-width: 232px; max-height: 200px; object-fit: contain; }
-  .ficha-foto .sin-foto { font-size: 8.5pt; color: #bbb; text-align: center; }
+  .ficha-foto img { max-width: 100%; max-height: 304px; object-fit: contain; }
+  .ficha-foto .sin-foto { font-size: 9pt; color: #bbb; text-align: center; }
 
-  .ficha-info { flex: 1; padding-top: 4px; }
+  .ficha-info { }
+  .ficha-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
   .ficha-numero {
     display: inline-block; background: #2e7d32; color: white;
     font-size: 8pt; font-weight: bold; padding: 2px 9px;
-    border-radius: 10px; margin-bottom: 9px;
+    border-radius: 10px; flex-shrink: 0;
   }
-  .ficha-nombre { font-size: 12pt; font-weight: bold; color: #111; margin-bottom: 3px; line-height: 1.3; }
-  .ficha-codigo { font-size: 8pt; color: #999; font-family: monospace; margin-bottom: 12px; }
-  .ficha-specs { list-style: none; }
+  .ficha-nombre { font-size: 12pt; font-weight: bold; color: #111; line-height: 1.3; }
+  .ficha-codigo { font-size: 8pt; color: #999; font-family: monospace; margin-bottom: 10px; }
+  .ficha-specs { list-style: none; display: flex; flex-wrap: wrap; gap: 2px 30px; }
   .ficha-specs li {
     font-size: 9.5pt; color: #444; line-height: 1.75;
-    padding-left: 14px; position: relative;
+    padding-left: 14px; position: relative; width: 45%;
   }
   .ficha-specs li::before { content: "•"; position: absolute; left: 0; color: #2e7d32; font-weight: bold; }
 
@@ -176,8 +178,10 @@
     {% endif %}
   </div>
   <div class="ficha-info">
-    <span class="ficha-numero">{{ forloop.counter }}</span>
-    <div class="ficha-nombre">{{ linea.descripcion }}</div>
+    <div class="ficha-header">
+      <span class="ficha-numero">{{ forloop.counter }}</span>
+      <div class="ficha-nombre">{{ linea.descripcion }}</div>
+    </div>
     {% if linea.producto.codigo %}<div class="ficha-codigo">Código: {{ linea.producto.codigo }}</div>{% endif %}
     {% if linea.producto.especificaciones %}
     <ul class="ficha-specs">
