@@ -5,65 +5,105 @@
 <style>
   @page {
     size: A4;
-    margin: 1.5cm 1.8cm;
+    margin: 1.8cm 2cm;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #222; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #222; }
 
-  /* ── SALTOS DE PÁGINA ── */
   .page-break { page-break-after: always; }
 
-  /* ── HEADER (se repite en cada página) ── */
-  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #c8102e; margin-bottom: 14px; }
-  .brand-name { font-size: 22pt; font-weight: 900; color: #2e7d32; letter-spacing: -0.5px; }
-  .brand-sub  { font-size: 8pt; color: #555; margin-top: 2px; }
-  .company-info { text-align: right; font-size: 8pt; color: #444; line-height: 1.6; }
-  .company-info strong { font-size: 9pt; color: #111; }
+  /* ── HEADER ── */
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 14px; border-bottom: 3px solid #c8102e; margin-bottom: 20px;
+  }
+  .brand-name { font-size: 26pt; font-weight: 900; color: #2e7d32; letter-spacing: -0.5px; }
+  .brand-sub  { font-size: 9pt; color: #666; margin-top: 4px; }
+  .company-info { text-align: right; font-size: 9pt; color: #444; line-height: 1.8; }
+  .company-info strong { font-size: 10pt; color: #111; }
 
   /* ── TITLE BAR ── */
-  .quote-title { background: #f5f5f5; border-left: 4px solid #2e7d32; padding: 8px 12px; margin-bottom: 14px; }
-  .quote-title .location { font-size: 8.5pt; color: #555; }
-  .quote-title .ref { font-size: 10pt; font-weight: bold; color: #111; margin-top: 3px; }
+  .quote-title {
+    background: #f5f5f5; border-left: 5px solid #2e7d32;
+    padding: 12px 16px; margin-bottom: 20px;
+  }
+  .quote-title .location { font-size: 9.5pt; color: #666; }
+  .quote-title .ref { font-size: 12pt; font-weight: bold; color: #111; margin-top: 5px; }
 
   /* ── PÁGINA 1: TABLA DE PRECIOS ── */
-  table.precios { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  table.precios { width: 100%; border-collapse: collapse; margin: 16px 0; }
   table.precios thead tr { background: #2e7d32; color: white; }
-  table.precios thead th { padding: 7px 10px; text-align: left; font-size: 8.5pt; font-weight: 600; }
+  table.precios thead th { padding: 10px 12px; text-align: left; font-size: 9.5pt; font-weight: 600; }
   table.precios thead th.right { text-align: right; }
-  table.precios tbody tr { border-bottom: 1px solid #e8e8e8; }
-  table.precios tbody tr:nth-child(even) { background: #fafafa; }
-  table.precios tbody td { padding: 7px 10px; font-size: 9pt; vertical-align: middle; }
+  table.precios tbody tr { border-bottom: 1px solid #e0e0e0; }
+  table.precios tbody tr:nth-child(even) { background: #f7f7f7; }
+  table.precios tbody td { padding: 11px 12px; font-size: 10pt; vertical-align: middle; }
   table.precios tbody td.right { text-align: right; }
 
-  .totals { margin-left: auto; width: 240px; margin-top: 8px; }
+  .totals { margin-left: auto; width: 280px; margin-top: 14px; }
   .totals table { width: 100%; border-collapse: collapse; }
-  .totals td { padding: 4px 10px; font-size: 9pt; }
+  .totals td { padding: 6px 12px; font-size: 10.5pt; }
   .totals td.label { color: #555; }
   .totals td.value { text-align: right; font-weight: 600; }
-  .totals .total-final td { border-top: 2px solid #2e7d32; font-weight: bold; font-size: 10.5pt; padding-top: 6px; }
+  .totals .total-final td {
+    border-top: 2px solid #2e7d32; font-weight: bold;
+    font-size: 13pt; padding-top: 8px;
+  }
 
-  /* ── PÁGINA 2: FICHAS DE PRODUCTO ── */
-  .page-title { font-size: 11pt; font-weight: bold; color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 6px; margin-bottom: 16px; }
+  /* ── PÁGINA 2: FICHAS TÉCNICAS ── */
+  .page-title {
+    font-size: 13pt; font-weight: bold; color: #2e7d32;
+    border-bottom: 2px solid #2e7d32; padding-bottom: 8px; margin-bottom: 22px;
+  }
 
-  .ficha { display: flex; gap: 20px; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #e8e8e8; page-break-inside: avoid; }
+  .ficha {
+    display: flex; gap: 26px;
+    margin-bottom: 28px; padding-bottom: 26px;
+    border-bottom: 1px solid #ddd;
+    page-break-inside: avoid;
+    min-height: 180px;
+  }
   .ficha:last-child { border-bottom: none; }
-  .ficha-foto { width: 160px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 4px; padding: 8px; min-height: 120px; }
-  .ficha-foto img { max-width: 144px; max-height: 120px; object-fit: contain; }
-  .ficha-info { flex: 1; }
-  .ficha-nombre { font-size: 10pt; font-weight: bold; color: #111; margin-bottom: 2px; }
-  .ficha-codigo { font-size: 7.5pt; color: #888; font-family: monospace; margin-bottom: 8px; }
+  .ficha-foto {
+    width: 210px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #f9f9f9; border: 1px solid #e0e0e0;
+    border-radius: 6px; padding: 12px; min-height: 160px;
+  }
+  .ficha-foto img { max-width: 186px; max-height: 160px; object-fit: contain; }
+  .ficha-foto .sin-foto {
+    font-size: 8pt; color: #bbb; text-align: center; line-height: 1.6;
+  }
+  .ficha-info { flex: 1; padding-top: 4px; }
+  .ficha-numero {
+    display: inline-block; background: #2e7d32; color: white;
+    font-size: 8pt; font-weight: bold; padding: 2px 8px;
+    border-radius: 10px; margin-bottom: 8px;
+  }
+  .ficha-nombre { font-size: 11.5pt; font-weight: bold; color: #111; margin-bottom: 3px; line-height: 1.3; }
+  .ficha-codigo { font-size: 8pt; color: #999; font-family: monospace; margin-bottom: 12px; }
   .ficha-specs { list-style: none; }
-  .ficha-specs li { font-size: 8.5pt; color: #444; line-height: 1.6; padding-left: 10px; position: relative; }
-  .ficha-specs li::before { content: "•"; position: absolute; left: 0; color: #2e7d32; }
+  .ficha-specs li {
+    font-size: 9.5pt; color: #444; line-height: 1.7;
+    padding-left: 14px; position: relative;
+  }
+  .ficha-specs li::before { content: "•"; position: absolute; left: 0; color: #2e7d32; font-weight: bold; }
 
   /* ── PÁGINA 3: CONDICIONES ── */
-  .conditions-title { font-size: 11pt; font-weight: bold; color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 6px; margin-bottom: 16px; }
-  .conditions p { font-size: 9pt; color: #333; line-height: 1.65; margin-bottom: 10px; }
+  .conditions-title {
+    font-size: 13pt; font-weight: bold; color: #2e7d32;
+    border-bottom: 2px solid #2e7d32; padding-bottom: 8px; margin-bottom: 22px;
+  }
+  .conditions p { font-size: 10pt; color: #333; line-height: 1.8; margin-bottom: 16px; }
   .conditions strong { color: #111; }
 
   /* ── FOOTER ── */
-  .footer { margin-top: 24px; border-top: 2px solid #c8102e; padding-top: 10px; font-size: 8pt; color: #444; text-align: center; line-height: 1.7; }
-  .footer strong { color: #111; font-size: 9pt; }
+  .footer {
+    margin-top: 30px; border-top: 3px solid #c8102e;
+    padding-top: 12px; font-size: 9pt; color: #444;
+    text-align: center; line-height: 1.9;
+  }
+  .footer strong { color: #111; font-size: 10pt; }
 </style>
 </head>
 <body>
@@ -104,11 +144,11 @@
   <tbody>
     {% for linea in consulta.lineas.all %}
     <tr>
-      <td style="color:#999;">{{ forloop.counter }}</td>
-      <td>{{ linea.descripcion }}</td>
+      <td style="color:#aaa; font-size:9pt;">{{ forloop.counter }}</td>
+      <td><strong>{{ linea.descripcion }}</strong></td>
       <td class="right">{{ linea.cantidad }}</td>
       <td class="right">u$s {{ linea.precio_unitario }} + IVA</td>
-      <td class="right">u$s {{ linea.subtotal }}</td>
+      <td class="right"><strong>u$s {{ linea.subtotal }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
@@ -118,7 +158,7 @@
   <table>
     <tr><td class="label">Subtotal neto</td><td class="value">u$s {{ total_neto }}</td></tr>
     <tr><td class="label">IVA 21%</td><td class="value">u$s {{ iva }}</td></tr>
-    <tr class="total-final"><td class="label">Total</td><td class="value">u$s {{ total_con_iva }}</td></tr>
+    <tr class="total-final"><td class="label">Total c/ IVA</td><td class="value">u$s {{ total_con_iva }}</td></tr>
   </table>
 </div>
 
@@ -153,11 +193,14 @@
   <div class="ficha-foto">
     {% if linea.producto.foto_data_uri %}
     <img src="{{ linea.producto.foto_data_uri }}" alt="{{ linea.descripcion }}">
+    {% else %}
+    <div class="sin-foto">Sin imagen<br>disponible</div>
     {% endif %}
   </div>
   <div class="ficha-info">
+    <span class="ficha-numero">{{ forloop.counter }}</span>
     <div class="ficha-nombre">{{ linea.descripcion }}</div>
-    {% if linea.producto.codigo %}<div class="ficha-codigo">{{ linea.producto.codigo }}</div>{% endif %}
+    {% if linea.producto.codigo %}<div class="ficha-codigo">Código: {{ linea.producto.codigo }}</div>{% endif %}
     {% if linea.producto.especificaciones %}
     <ul class="ficha-specs">
       {% for spec in linea.producto.especificaciones.splitlines %}
