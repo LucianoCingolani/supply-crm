@@ -3,315 +3,409 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  @page {
-    size: A4;
-    margin: 1.5cm 1.8cm 2cm 1.8cm;
-    @bottom-center {
-      content: "";
-    }
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #222; }
 
-  /* ══ HEADER ══ */
-  .header { margin-bottom: 6px; }
+/* ══════════════════════════════════════════════════
+   PÁGINA Y TIPOGRAFÍA BASE
+══════════════════════════════════════════════════ */
+@page {
+  size: A4;
+  margin: 1.4cm 1.8cm 1.6cm 1.8cm;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10pt;
+  color: #1a1a1a;
+  padding-bottom: 52px; /* espacio para el footer fijo */
+}
 
-  .header-top {
-    display: flex; align-items: center; gap: 14px; margin-bottom: 10px;
-  }
-  /* Logo "S" circular */
-  .logo-circle {
-    width: 68px; height: 68px; border-radius: 50%;
-    background: #2e7d32;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .logo-s {
-    color: white; font-size: 38pt; font-weight: 900;
-    line-height: 1; font-family: Arial, sans-serif; margin-top: -4px;
-  }
-  .logo-text { }
-  .logo-brand {
-    font-size: 28pt; font-weight: 900; color: #2e7d32;
-    letter-spacing: -0.5px; line-height: 1;
-  }
-  .logo-sub { font-size: 9pt; color: #444; margin-top: 3px; }
+/* ══════════════════════════════════════════════════
+   FOOTER FIJO — se ancla al fondo de cada página
+══════════════════════════════════════════════════ */
+.pdf-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: white;
+  border-top: 2.5px solid #c0161e;
+  padding-top: 6px;
+  text-align: center;
+}
+.pdf-footer-cats {
+  font-size: 6.5pt;
+  color: #aaa;
+  letter-spacing: 0.2px;
+}
+.pdf-footer-cats span + span::before {
+  content: " · ";
+  color: #ddd;
+}
 
-  /* Info centrada bajo el logo */
-  .header-info {
-    text-align: center; font-size: 9pt; color: #333;
-    line-height: 1.7; margin-bottom: 8px;
-  }
-  .header-info .cuit { font-size: 10pt; font-weight: bold; letter-spacing: 0.3px; }
-  .header-info .address { font-size: 11pt; font-weight: bold; }
-  .header-info .web { font-size: 8.5pt; color: #555; }
+/* ══════════════════════════════════════════════════
+   HEADER COMPLETO (solo página 1)
+══════════════════════════════════════════════════ */
+.header-full {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+  border-bottom: 3px solid #c0161e;
+}
+.header-logo-wrap { display: flex; align-items: center; gap: 11px; }
+.logo-circle {
+  width: 58px; height: 58px; border-radius: 50%;
+  background: #1a5c2e;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-s { color: white; font-size: 30pt; font-weight: 900; line-height: 1; margin-top: -2px; }
+.brand-name { font-size: 21pt; font-weight: 900; color: #1a5c2e; line-height: 1.1; letter-spacing: -0.3px; }
+.brand-sub  { font-size: 7.5pt; color: #777; margin-top: 3px; }
+.header-company { text-align: right; font-size: 8.5pt; color: #444; line-height: 1.8; }
+.header-company b { font-size: 9.5pt; color: #111; }
 
-  /* Línea roja separadora */
-  .header-line { border: none; border-top: 3px solid #c8102e; margin: 0; }
+/* ══════════════════════════════════════════════════
+   HEADER COMPACTO (páginas de producto)
+══════════════════════════════════════════════════ */
+.header-compact {
+  background: #1a5c2e;
+  border-radius: 4px;
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.hc-brand { color: white; font-size: 11pt; font-weight: 900; }
+.hc-info  { color: rgba(255,255,255,0.7); font-size: 7.5pt; text-align: right; line-height: 1.5; }
 
-  /* ══ FOOTER ══ */
-  .footer-line { border: none; border-top: 3px solid #c8102e; margin-top: 16px; }
-  .footer-content {
-    display: flex; justify-content: space-between; align-items: center;
-    padding-top: 5px; font-size: 7.5pt; color: #555;
-  }
-  .footer-cats {
-    display: flex; gap: 14px; font-size: 7pt; color: #666; align-items: flex-end;
-  }
-  .footer-cats span { text-align: center; line-height: 1.3; }
-  .footer-page { font-size: 8pt; color: #888; white-space: nowrap; }
+/* ══════════════════════════════════════════════════
+   INFORMACIÓN DE COTIZACIÓN
+══════════════════════════════════════════════════ */
+.quote-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.quote-date { font-size: 9pt; color: #666; }
+.quote-number { font-size: 16pt; font-weight: 900; color: #1a5c2e; letter-spacing: -0.5px; }
 
-  /* ══ TÍTULO DE COTIZACIÓN ══ */
-  .quote-date { font-size: 11.5pt; font-weight: bold; color: #111; margin: 18px 0 4px; }
-  .quote-ref {
-    font-size: 10pt; color: #c8102e; border-bottom: 1.5px solid #e0a000;
-    padding-bottom: 3px; margin-bottom: 18px; display: inline-block;
-  }
+.quote-client {
+  background: #f3f8f4;
+  border-left: 4px solid #1a5c2e;
+  padding: 8px 14px;
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.qc-name { font-size: 11pt; font-weight: bold; color: #111; }
+.qc-cuit { font-size: 9pt; color: #777; }
 
-  /* ══ TABLA DE PRECIOS ══ */
-  table.precios { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-  table.precios thead tr { background: #2e7d32; color: white; }
-  table.precios thead th { padding: 9px 12px; text-align: left; font-size: 9.5pt; font-weight: 600; }
-  table.precios thead th.right { text-align: right; }
-  table.precios tbody tr { border-bottom: 1px solid #e0e0e0; }
-  table.precios tbody tr:nth-child(even) { background: #f7f7f7; }
-  table.precios tbody td { padding: 10px 12px; font-size: 10pt; vertical-align: middle; }
-  table.precios tbody td.right { text-align: right; }
+/* ══════════════════════════════════════════════════
+   TABLA DE PRECIOS
+══════════════════════════════════════════════════ */
+table.t-precios { width: 100%; border-collapse: collapse; }
+table.t-precios thead tr { background: #1a5c2e; }
+table.t-precios thead th {
+  padding: 10px 14px;
+  color: white;
+  text-align: left;
+  font-size: 9pt;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+table.t-precios thead th.r { text-align: right; }
+table.t-precios tbody tr { border-bottom: 1px solid #eaeaea; }
+table.t-precios tbody tr:nth-child(even) { background: #fafcfb; }
+table.t-precios tbody td { padding: 10px 14px; vertical-align: middle; }
+table.t-precios tbody td.n  { font-size: 8.5pt; color: #ccc; }
+table.t-precios tbody td.r  { text-align: right; }
+table.t-precios tbody td.desc strong { font-size: 10.5pt; color: #111; }
+table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: block; margin-top: 1px; }
 
-  /* ══ TOTALES ══ */
-  .totals { width: 100%; margin-top: 16px; }
-  .totals table { width: 100%; border-collapse: collapse; }
-  .totals tr { border-bottom: 1px solid #e8e8e8; }
-  .totals td { padding: 11px 20px; font-size: 11.5pt; }
-  .totals td.label { color: #555; width: 50%; }
-  .totals td.value { text-align: right; font-weight: 600; width: 50%; }
-  .totals .total-final { background: #2e7d32; }
-  .totals .total-final td {
-    color: white; font-weight: bold; font-size: 14pt;
-    border-bottom: none; padding: 14px 20px;
-  }
+/* ══════════════════════════════════════════════════
+   BLOQUE DE TOTALES
+══════════════════════════════════════════════════ */
+.totals-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+.totals-inner { width: 48%; border-collapse: collapse; }
+.totals-inner tr { border-bottom: 1px solid #eee; }
+.totals-inner td { padding: 10px 14px; font-size: 11pt; }
+.totals-inner td.lbl { color: #666; }
+.totals-inner td.val { text-align: right; font-weight: 600; color: #111; }
+.totals-inner .grand { background: #1a5c2e; }
+.totals-inner .grand td {
+  color: white; font-weight: 900; font-size: 13pt;
+  padding: 13px 14px; border: none;
+}
+.totals-inner table { width: 100%; border-collapse: collapse; }
 
-  /* ══ PÁGINA PRODUCTO: foto mitad superior ══ */
-  .producto-foto {
-    width: 100%; height: 390px;
-    display: flex; align-items: center; justify-content: center;
-    background: #f7f7f7; border: 1px solid #e0e0e0;
-    border-radius: 6px; padding: 20px; margin-bottom: 20px;
-  }
-  .producto-foto img { max-width: 100%; max-height: 350px; object-fit: contain; }
-  .producto-foto .sin-foto { font-size: 10pt; color: #ccc; }
+/* ══════════════════════════════════════════════════
+   FOTO DE PRODUCTO
+══════════════════════════════════════════════════ */
+.product-photo {
+  width: 100%; height: 372px;
+  display: flex; align-items: center; justify-content: center;
+  background: #f7f9f7;
+  border: 1px solid #dde8dd;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.product-photo img { max-width: 100%; max-height: 340px; object-fit: contain; }
+.product-photo .no-img { font-size: 9pt; color: #ccc; }
 
-  /* Info mitad inferior */
-  .producto-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .producto-numero {
-    background: #2e7d32; color: white;
-    font-size: 8pt; font-weight: bold; padding: 3px 10px;
-    border-radius: 12px; flex-shrink: 0;
-  }
-  .producto-nombre {
-    font-size: 13pt; font-weight: bold; color: #111;
-    border-bottom: 1.5px solid #e0a000; padding-bottom: 4px; flex: 1;
-  }
-  .producto-codigo { font-size: 8.5pt; color: #999; font-family: monospace; margin-bottom: 12px; }
-  .producto-specs { list-style: none; display: flex; flex-wrap: wrap; gap: 0 40px; }
-  .producto-specs li {
-    font-size: 10pt; color: #333; line-height: 1.8;
-    padding-left: 16px; position: relative; width: 46%;
-  }
-  .producto-specs li::before { content: "•"; position: absolute; left: 0; color: #2e7d32; font-weight: bold; }
+.product-info-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.product-badge {
+  background: #1a5c2e; color: white;
+  font-size: 7.5pt; font-weight: bold;
+  padding: 3px 10px; border-radius: 20px; flex-shrink: 0;
+}
+.product-name {
+  font-size: 13.5pt; font-weight: 900; color: #111; flex: 1;
+  border-bottom: 2px solid #e8b84b; padding-bottom: 3px;
+}
+.product-code { font-size: 8pt; color: #bbb; font-family: monospace; margin-bottom: 11px; }
+.product-specs { list-style: none; columns: 2; column-gap: 28px; }
+.product-specs li {
+  font-size: 9.5pt; color: #333; line-height: 1.8;
+  padding-left: 14px; position: relative;
+  break-inside: avoid;
+}
+.product-specs li::before {
+  content: "›"; position: absolute; left: 0;
+  color: #1a5c2e; font-weight: bold; font-size: 11pt; line-height: 1.4;
+}
 
-  /* ══ CONDICIONES ══ */
-  .conditions-title {
-    font-size: 11pt; font-weight: bold; color: #111;
-    text-decoration: underline; margin: 0 0 14px;
-  }
-  .conditions p {
-    font-size: 9.5pt; color: #222; line-height: 1.75; margin-bottom: 12px;
-  }
-  .conditions p strong { font-weight: bold; color: #111; }
+/* ══════════════════════════════════════════════════
+   PÁGINA DE CONDICIONES
+══════════════════════════════════════════════════ */
+.cond-title {
+  font-size: 12pt; font-weight: 900; color: #1a5c2e;
+  border-bottom: 2px solid #1a5c2e;
+  padding-bottom: 6px; margin-bottom: 12px;
+  letter-spacing: 0.2px;
+}
+.cond-body { columns: 2; column-gap: 22px; }
+.cond-item {
+  break-inside: avoid;
+  margin-bottom: 8px;
+  font-size: 8.2pt;
+  line-height: 1.52;
+  color: #2a2a2a;
+}
+.cond-item b { color: #1a5c2e; }
 
-  .firma {
-    margin-top: 20px; text-align: center;
-    font-size: 10pt; font-weight: bold; text-decoration: underline;
-  }
-  .firma-datos {
-    margin-top: 10px; font-size: 9.5pt; color: #222; line-height: 1.8;
-  }
-  .firma-datos strong { font-weight: bold; }
+.firma-block {
+  margin-top: 16px;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 12px;
+  columns: 2; column-gap: 22px;
+}
+.firma-saludo { font-size: 9.5pt; font-weight: bold; color: #111; break-inside: avoid; margin-bottom: 4px; }
+.firma-contact { font-size: 8.5pt; color: #555; line-height: 1.8; break-inside: avoid; }
+
 </style>
 </head>
 <body>
 
-{% comment %}── Macro: header ──{% endcomment %}
+<!-- ═══════════════════════════════════════════════
+     FOOTER FIJO (se repite en todas las páginas)
+══════════════════════════════════════════════════ -->
+<div class="pdf-footer">
+  <div class="pdf-footer-cats">
+    <span>Pallets Plásticos</span><span>Antiderrames</span><span>Cubas</span>
+    <span>Tanques</span><span>Gavetas</span><span>Cajones Industriales</span>
+    <span>Canastos</span><span>Bines</span><span>Recipientes de Residuos</span>
+    <span>Estaciones Ambientales</span><span>Contenedores</span><span>Campanas</span>
+    <span>supplyargentina.com.ar</span>
+  </div>
+</div>
 
-<!-- ══════════════════════════
+<!-- ═══════════════════════════════════════════════
      PÁGINA 1 — COTIZACIÓN
-     ══════════════════════════ -->
+══════════════════════════════════════════════════ -->
 
-<div class="header">
-  <div class="header-top">
+<div class="header-full">
+  <div class="header-logo-wrap">
     <div class="logo-circle"><span class="logo-s">S</span></div>
-    <div class="logo-text">
-      <div class="logo-brand">Supply Argentina</div>
-      <div class="logo-sub">Fabricación y comercialización de Artículos Plásticos</div>
+    <div>
+      <div class="brand-name">Supply Argentina</div>
+      <div class="brand-sub">Fabricación y comercialización de Artículos Plásticos</div>
     </div>
   </div>
-  <div class="header-info">
-    <div class="cuit">SUPPLY ARGENTINA S.R.L. &nbsp;&nbsp; CUIT: 30-71892853-9</div>
-    <div class="address">Neuquén 4044 (1653) – Villa Ballester – Pcia. de Buenos Aires</div>
-    <div class="web">www.supplyargentina.com.ar &nbsp;–&nbsp; www.palletplastico.com.ar &nbsp;–&nbsp; www.apsaindustrial.com.ar</div>
+  <div class="header-company">
+    <b>SUPPLY ARGENTINA S.R.L. &nbsp;·&nbsp; CUIT 30-71892853-9</b><br>
+    Neuquén 4044 (1653) – Villa Ballester – Pcia. de Buenos Aires<br>
+    supplyargentina.com.ar &nbsp;·&nbsp; palletplastico.com.ar &nbsp;·&nbsp; apsaindustrial.com.ar
   </div>
-  <hr class="header-line">
 </div>
 
-<div class="quote-date">Buenos Aires, Villa Ballester, {{ consulta.fecha|date:"d" }} de {{ consulta.fecha|date:"F Y" }}</div>
-<div class="quote-ref">
-  Cotización {% if consulta.numero_cotizacion %}{{ consulta.numero_cotizacion }} —&nbsp;{% endif %}{{ consulta.razon_social|default:consulta.contacto|default:"Cliente" }}{% if consulta.cuit %} —&nbsp;{{ consulta.cuit }}{% endif %}
+<div class="quote-topline">
+  <span class="quote-date">Buenos Aires, Villa Ballester, {{ consulta.fecha|date:"d" }} de {{ consulta.fecha|date:"F" }} de {{ consulta.fecha|date:"Y" }}</span>
+  <span class="quote-number">{% if consulta.numero_cotizacion %}Cotización N° {{ consulta.numero_cotizacion }}{% else %}Cotización{% endif %}</span>
 </div>
 
-<table class="precios">
+<div class="quote-client">
+  <span class="qc-name">{{ consulta.razon_social|default:consulta.contacto|default:"Cliente" }}</span>
+  {% if consulta.cuit %}<span class="qc-cuit">CUIT / CUIL: {{ consulta.cuit }}</span>{% endif %}
+</div>
+
+<table class="t-precios">
   <thead>
     <tr>
-      <th style="width:5%">N°</th>
-      <th style="width:52%">Descripción</th>
-      <th class="right" style="width:14%">Cantidad</th>
-      <th class="right" style="width:15%">Precio unit.</th>
-      <th class="right" style="width:14%">Subtotal</th>
+      <th style="width:4%">N°</th>
+      <th style="width:50%">Descripción</th>
+      <th class="r" style="width:12%">Cantidad</th>
+      <th class="r" style="width:18%">Precio unitario</th>
+      <th class="r" style="width:16%">Subtotal</th>
     </tr>
   </thead>
   <tbody>
     {% for linea in consulta.lineas.all %}
     <tr>
-      <td style="color:#aaa; font-size:9pt;">{{ forloop.counter }}</td>
-      <td><strong>{{ linea.descripcion }}</strong></td>
-      <td class="right">{{ linea.cantidad }}</td>
-      <td class="right">u$s {{ linea.precio_unitario }} + IVA</td>
-      <td class="right"><strong>u$s {{ linea.subtotal }}</strong></td>
+      <td class="n">{{ forloop.counter }}</td>
+      <td class="desc">
+        <strong>{{ linea.descripcion }}</strong>
+        {% if linea.producto.codigo %}<small>Cód. {{ linea.producto.codigo }}</small>{% endif %}
+      </td>
+      <td class="r">{{ linea.cantidad }}</td>
+      <td class="r">u$s {{ linea.precio_unitario }} + IVA</td>
+      <td class="r"><strong>u$s {{ linea.subtotal }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 
-<div class="totals">
-  <table>
-    <tr><td class="label">Subtotal neto</td><td class="value">u$s {{ total_neto }}</td></tr>
-    <tr><td class="label">IVA 21%</td><td class="value">u$s {{ iva }}</td></tr>
-    <tr class="total-final"><td class="label">Total c/ IVA</td><td class="value">u$s {{ total_con_iva }}</td></tr>
+<div class="totals-wrap">
+  <table class="totals-inner">
+    <tr><td class="lbl">Subtotal neto</td><td class="val">u$s {{ total_neto }}</td></tr>
+    <tr><td class="lbl">IVA (21%)</td><td class="val">u$s {{ iva }}</td></tr>
+    <tr class="grand"><td>Total c/ IVA</td><td style="text-align:right">u$s {{ total_con_iva }}</td></tr>
   </table>
 </div>
 
-<hr class="footer-line">
-<div class="footer-content">
-  <div class="footer-cats">
-    <span>Pallets<br>Plásticos</span>
-    <span>Antiderrames<br>y Bateas</span>
-    <span>Cubas</span>
-    <span>Tanques</span>
-    <span>Gavetas<br>Plásticas</span>
-    <span>Cajones<br>Industriales</span>
-    <span>Canastos<br>Plásticos</span>
-    <span>Bines<br>Plásticos</span>
-    <span>Recipientes<br>de residuos</span>
-    <span>Estaciones<br>Ambientales</span>
-    <span>Contenedores</span>
-    <span>Campanas</span>
-  </div>
-  <div class="footer-page">Página 1</div>
-</div>
-
-<!-- ══════════════════════════
+<!-- ═══════════════════════════════════════════════
      UNA PÁGINA POR PRODUCTO
-     ══════════════════════════ -->
+══════════════════════════════════════════════════ -->
 {% for linea in consulta.lineas.all %}
 <div style="page-break-before: always;">
 
-  <div class="header">
-    <div class="header-top">
-      <div class="logo-circle"><span class="logo-s">S</span></div>
-      <div class="logo-text">
-        <div class="logo-brand">Supply Argentina</div>
-        <div class="logo-sub">Fabricación y comercialización de Artículos Plásticos</div>
-      </div>
-    </div>
-    <div class="header-info">
-      <div class="cuit">SUPPLY ARGENTINA S.R.L. &nbsp;&nbsp; CUIT: 30-71892853-9</div>
-      <div class="address">Neuquén 4044 (1653) – Villa Ballester – Pcia. de Buenos Aires</div>
-      <div class="web">www.supplyargentina.com.ar &nbsp;–&nbsp; www.palletplastico.com.ar &nbsp;–&nbsp; www.apsaindustrial.com.ar</div>
-    </div>
-    <hr class="header-line">
+  <div class="header-compact">
+    <span class="hc-brand">Supply Argentina</span>
+    <span class="hc-info">
+      SUPPLY ARGENTINA S.R.L. · CUIT 30-71892853-9<br>
+      Neuquén 4044 – Villa Ballester – Buenos Aires
+    </span>
   </div>
 
-  <div class="producto-foto">
+  <div class="product-photo">
     {% if linea.producto.foto_data_uri %}
-    <img src="{{ linea.producto.foto_data_uri }}" alt="{{ linea.descripcion }}">
+      <img src="{{ linea.producto.foto_data_uri }}" alt="{{ linea.descripcion }}">
     {% else %}
-    <div class="sin-foto">Sin imagen disponible</div>
+      <div class="no-img">Sin imagen disponible</div>
     {% endif %}
   </div>
 
-  <div class="producto-header">
-    <span class="producto-numero">{{ forloop.counter }}</span>
-    <div class="producto-nombre">{{ linea.descripcion }}</div>
+  <div class="product-info-row">
+    <span class="product-badge">{{ forloop.counter }}</span>
+    <div class="product-name">{{ linea.descripcion }}</div>
   </div>
   {% if linea.producto.codigo %}
-  <div class="producto-codigo">Código: {{ linea.producto.codigo }}</div>
+  <div class="product-code">Código: {{ linea.producto.codigo }}</div>
   {% endif %}
   {% if linea.producto.especificaciones %}
-  <ul class="producto-specs">
+  <ul class="product-specs">
     {% for spec in linea.producto.especificaciones.splitlines %}
     {% if spec %}<li>{{ spec }}</li>{% endif %}
     {% endfor %}
   </ul>
   {% endif %}
 
-
 </div>
 {% endfor %}
 
-<!-- ══════════════════════════
-     ÚLTIMA PÁGINA — CONDICIONES
-     ══════════════════════════ -->
+<!-- ═══════════════════════════════════════════════
+     PÁGINA DE CONDICIONES
+══════════════════════════════════════════════════ -->
 <div style="page-break-before: always;">
 
-  <div class="conditions-title">Condiciones de suministro:</div>
+  <div class="cond-title">Condiciones de suministro</div>
 
-  <div class="conditions">
-    <p><strong>Tasa de IVA:</strong> 21%.</p>
-    <p><strong>Disponibilidad:</strong> A confirmar según cantidad y cola de fabricación.</p>
-    <p><strong>Mantenimiento de la oferta:</strong> 24hs.</p>
-    <p><strong>Pagos:</strong> 50% de anticipo por fabricación por Transferencia Bancaria, el otro saldo por el 50% por echeq a consultar – Otras a consultar.</p>
-    <p><strong>Pagos fuera del término acordado:</strong> Los saldos cancelados fuera de termino serán ajustados de acuerdo a la tasa activa que cobra el Banco Nación Argentina o base de cambio al momento de recibido el pago. En caso de corresponder retenciones impositivas, el pago no se tendrá por cumplido hasta ser correctamente recibidos los certificados de retenciones, siendo responsabilidad del comprador enviarlas a: facturacion@supplyargentina.com.ar.</p>
-    <p><strong>Anticipos:</strong> Los pagos con anticipos acordados serán efectivos cuando se confirme la acreditación en la cuenta de Supply Argentina con su correspondiente comprobante a la casilla de correo facturacion@supplyargentina.com.ar.</p>
-    <p><strong>Moneda Extranjera:</strong> El material cotizado en moneda extranjera deberá recibir la efectiva orden de compra en la misma moneda; se facturará en esa moneda. El cliente podrá cancelar en Pesos Argentinos según base de cambio del día anterior de la factura al tipo de cambio billete vendedor Banco de la Nación Argentina, según normativa de ARCA.</p>
-    <p><strong>Garantías:</strong> Nuestros productos son controlados al salir de producción y aprobados según exigencias internas de calidad. Las garantías solo se contemplan por fallas de fabricación. Al exceder las capacidades de cargas y especificaciones particulares según se detalla en la cotización no cubre ningún reclamo. <strong>Pasadas las 48hs de recibido el material no se aceptan reclamos ni devoluciones.</strong></p>
-    <p><strong>Entregas de mercaderías:</strong> A convenir, con costo a confirmar según zona de despacho o envío en provincia o CABA. En caso de envíos a otras provincias, despachamos sin cargo desde nuestro depósito a los siguientes transportes: Brío – Vía Cargo – Cruz del Sur y/o Credifin (el costo de envío que cobra el transporte es a cargo del cliente).</p>
-    <p><strong>Retiros por depósito:</strong> Para retiros de mercadería se deberá solicitar turno con antelación de 48 hs. Retiros por Neuquén 4044 – Villa Ballester, de lunes a viernes de 8 a 13 y de 14 a 16:30hs. O enviar consulta a: info@supplyargentina.com.ar</p>
-    <p><strong>Embalaje:</strong> El material se entrega correctamente embalado. Las entregas mediante descarga de auto elevador son a cargo del Comprador. En caso de que el cliente no disponga de auto elevador o personal para descarga, deberá notificarlo previo a la entrega.</p>
-    <p><strong>Descargas de mercaderías:</strong> Las entregas son a culata de vehículo. El cliente tiene que disponer de personal que reciba las mercaderías; en caso de necesitar personal para la descarga debe avisar antes y será cotizado.</p>
-    <p><strong>Compromiso de Disponibilidad:</strong> La disponibilidad del material expresada en la presente oferta será válida una vez efectuado el efectivo pago total o anticipo u orden de compra aceptada por Supply Argentina. El stock y plazos de entrega pueden variar desde el momento cotizado hasta el momento de la orden de compra o pago.</p>
-    <p><strong>Disponibilidad de material importado:</strong> Los plazos de entrega de los materiales importados dependerán de las condiciones de aprobación de aduanas, condiciones particulares de fletes marítimos o terrestres y comercio exterior. Supply Argentina mantendrá al tanto información sobre el tránsito actual de cada pedido.</p>
+  <div class="cond-body">
+
+    <div class="cond-item">
+      <b>Tasa de IVA:</b> 21%.
+    </div>
+
+    <div class="cond-item">
+      <b>Disponibilidad:</b> A confirmar según cantidad y cola de fabricación.
+    </div>
+
+    <div class="cond-item">
+      <b>Mantenimiento de la oferta:</b> 24 hs.
+    </div>
+
+    <div class="cond-item">
+      <b>Pagos:</b> 50% de anticipo por fabricación por Transferencia Bancaria; saldo 50% por echeq a consultar. Otras modalidades a consultar.
+    </div>
+
+    <div class="cond-item">
+      <b>Pagos fuera del término acordado:</b> Los saldos cancelados fuera de término serán ajustados según la tasa activa del Banco Nación Argentina o base de cambio al momento del pago. Los certificados de retenciones impositivas deberán enviarse a facturacion@supplyargentina.com.ar.
+    </div>
+
+    <div class="cond-item">
+      <b>Anticipos:</b> Los anticipos serán efectivos al confirmarse la acreditación en cuenta, con comprobante enviado a facturacion@supplyargentina.com.ar.
+    </div>
+
+    <div class="cond-item">
+      <b>Moneda extranjera:</b> Se factura en la moneda cotizada. El cliente puede cancelar en Pesos Argentinos según tipo de cambio billete vendedor Banco Nación del día anterior a la factura, conforme normativa ARCA.
+    </div>
+
+    <div class="cond-item">
+      <b>Garantías:</b> Productos controlados y aprobados al salir de producción. Garantía únicamente por fallas de fabricación. No se cubren reclamos por sobrecarga o uso indebido. <b>Pasadas las 48 hs de recibido el material no se aceptan reclamos ni devoluciones.</b>
+    </div>
+
+    <div class="cond-item">
+      <b>Entregas:</b> A convenir, con costo según zona. Envíos a otras provincias sin cargo desde depósito vía Brío, Vía Cargo, Cruz del Sur o Credifin (flete a cargo del cliente).
+    </div>
+
+    <div class="cond-item">
+      <b>Retiros por depósito:</b> Solicitar turno con 48 hs de anticipación. Retiros en Neuquén 4044, Villa Ballester, lunes a viernes de 8 a 13 y de 14 a 16:30 hs. Consultas: info@supplyargentina.com.ar.
+    </div>
+
+    <div class="cond-item">
+      <b>Embalaje:</b> El material se entrega correctamente embalado. Las entregas con autoelevador son a cargo del comprador. Si el cliente no dispone de autoelevador, debe notificarlo antes de la entrega.
+    </div>
+
+    <div class="cond-item">
+      <b>Descargas:</b> Las entregas son a culata de vehículo. El cliente debe disponer de personal para la recepción; si requiere asistencia de descarga, debe avisarlo previamente.
+    </div>
+
+    <div class="cond-item">
+      <b>Compromiso de disponibilidad:</b> La disponibilidad es válida una vez efectuado el pago total, anticipo u orden de compra aceptada. El stock y los plazos pueden variar desde la cotización hasta la confirmación.
+    </div>
+
+    <div class="cond-item">
+      <b>Disponibilidad de material importado:</b> Los plazos dependen de las condiciones de aduana, fletes marítimos o terrestres y comercio exterior. Supply Argentina mantendrá informado al cliente sobre el tránsito de cada pedido.
+    </div>
+
   </div>
 
-  <div class="firma">Esperamos su favorable respuesta, atte.: {{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }} – Dpto. Ventas</div>
-  <div class="firma-datos">
-    Neuquén 4044 – Villa Ballester – Buenos Aires<br>
-    <strong>Visitanos en:</strong> www.supplyargentina.com.ar / www.palletplastico.com.ar / www.apsaindustrial.com.ar<br>
-    <strong>O escribenos a:</strong> {% if consulta.vendedor.email %}{{ consulta.vendedor.email }}{% endif %} / comercial@supplyargentina.com.ar
-  </div>
-
-  <hr class="footer-line">
-  <div class="footer-content">
-    <div class="footer-cats">
-      <span>Pallets<br>Plásticos</span>
-      <span>Antiderrames<br>y Bateas</span>
-      <span>Cubas</span><span>Tanques</span>
-      <span>Gavetas<br>Plásticas</span>
-      <span>Cajones<br>Industriales</span>
-      <span>Canastos<br>Plásticos</span>
-      <span>Bines<br>Plásticos</span>
-      <span>Recipientes<br>de residuos</span>
-      <span>Estaciones<br>Ambientales</span>
-      <span>Contenedores</span><span>Campanas</span>
+  <div class="firma-block">
+    <div class="firma-saludo">Esperamos su favorable respuesta — {{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }}, Dpto. Ventas</div>
+    <div class="firma-contact">
+      comercial@supplyargentina.com.ar &nbsp;·&nbsp; info@supplyargentina.com.ar<br>
+      supplyargentina.com.ar &nbsp;·&nbsp; palletplastico.com.ar &nbsp;·&nbsp; apsaindustrial.com.ar<br>
+      Neuquén 4044 – Villa Ballester – Buenos Aires
     </div>
   </div>
 
