@@ -1,3 +1,4 @@
+{% load consultas_extras %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -278,8 +279,8 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
         {% if linea.producto.codigo %}<small>Cód. {{ linea.producto.codigo }}</small>{% endif %}
       </td>
       <td class="r">{{ linea.cantidad }}</td>
-      <td class="r">u$s {{ linea.precio_unitario }} + IVA</td>
-      <td class="r"><strong>u$s {{ linea.subtotal }}</strong></td>
+      <td class="r">u$s {{ linea.precio_unitario|precio_ar }} + IVA</td>
+      <td class="r"><strong>u$s {{ linea.subtotal|precio_ar }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
@@ -287,9 +288,9 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 
 <div class="totals-wrap">
   <table class="totals-inner">
-    <tr><td class="lbl">Subtotal neto</td><td class="val">u$s {{ total_neto }}</td></tr>
-    <tr><td class="lbl">IVA (21%)</td><td class="val">u$s {{ iva }}</td></tr>
-    <tr class="grand"><td>Total c/ IVA</td><td style="text-align:right">u$s {{ total_con_iva }}</td></tr>
+    <tr><td class="lbl">Subtotal neto</td><td class="val">u$s {{ total_neto|precio_ar }}</td></tr>
+    <tr><td class="lbl">IVA (21%)</td><td class="val">u$s {{ iva|precio_ar }}</td></tr>
+    <tr class="grand"><td>Total c/ IVA</td><td style="text-align:right">u$s {{ total_con_iva|precio_ar }}</td></tr>
   </table>
 </div>
 
