@@ -3,26 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  @page {
-    size: A4;
-    margin: 1.8cm 2cm;
-  }
+  @page { size: A4; margin: 1.8cm 2cm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #222; }
-
-  .page-break { page-break-after: always; }
 
   /* ── HEADER ── */
   .header {
     display: flex; justify-content: space-between; align-items: flex-start;
-    padding-bottom: 14px; border-bottom: 3px solid #c8102e; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 3px solid #c8102e; margin-bottom: 18px;
   }
   .brand-name { font-size: 26pt; font-weight: 900; color: #2e7d32; letter-spacing: -0.5px; }
   .brand-sub  { font-size: 9pt; color: #666; margin-top: 4px; }
   .company-info { text-align: right; font-size: 9pt; color: #444; line-height: 1.8; }
   .company-info strong { font-size: 10pt; color: #111; }
 
-  /* ── TITLE BAR ── */
+  /* ── PÁGINA 1: COTIZACIÓN ── */
   .quote-title {
     background: #f5f5f5; border-left: 5px solid #2e7d32;
     padding: 12px 16px; margin-bottom: 20px;
@@ -30,17 +25,16 @@
   .quote-title .location { font-size: 9.5pt; color: #666; }
   .quote-title .ref { font-size: 12pt; font-weight: bold; color: #111; margin-top: 5px; }
 
-  /* ── TABLA DE PRECIOS ── */
   table.precios { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
   table.precios thead tr { background: #2e7d32; color: white; }
   table.precios thead th { padding: 10px 12px; text-align: left; font-size: 9.5pt; font-weight: 600; }
   table.precios thead th.right { text-align: right; }
   table.precios tbody tr { border-bottom: 1px solid #e0e0e0; }
   table.precios tbody tr:nth-child(even) { background: #f7f7f7; }
-  table.precios tbody td { padding: 10px 12px; font-size: 10pt; vertical-align: middle; }
+  table.precios tbody td { padding: 11px 12px; font-size: 10pt; vertical-align: middle; }
   table.precios tbody td.right { text-align: right; }
 
-  .totals { margin-left: auto; width: 280px; margin-bottom: 30px; }
+  .totals { margin-left: auto; width: 280px; margin-top: 4px; }
   .totals table { width: 100%; border-collapse: collapse; }
   .totals td { padding: 5px 12px; font-size: 10.5pt; }
   .totals td.label { color: #555; }
@@ -50,46 +44,32 @@
     font-size: 13pt; padding-top: 8px;
   }
 
-  /* ── DIVISOR ENTRE TABLA Y FICHAS ── */
-  .section-title {
-    font-size: 11pt; font-weight: bold; color: #2e7d32;
-    border-bottom: 2px solid #2e7d32; padding-bottom: 7px; margin-bottom: 20px;
-  }
-
-  /* ── FICHAS DE PRODUCTO ── */
-  .ficha {
-    margin-bottom: 28px; padding-bottom: 28px;
-    border-bottom: 2px solid #e8e8e8;
-    page-break-inside: avoid;
-  }
-  .ficha:last-child { border-bottom: none; margin-bottom: 0; }
-
-  /* Foto ocupa todo el ancho */
-  .ficha-foto {
-    width: 100%; height: 340px;
+  /* ── PÁGINAS DE PRODUCTO ── */
+  /* Foto: mitad superior de la página (~400px ≈ mitad del área útil en A4) */
+  .producto-foto {
+    width: 100%; height: 400px;
     display: flex; align-items: center; justify-content: center;
-    background: #f7f7f7; border: 1px solid #e0e0e0;
-    border-radius: 8px; padding: 18px;
-    margin-bottom: 14px;
+    background: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 8px;
+    padding: 20px; margin-bottom: 22px;
   }
-  .ficha-foto img { max-width: 100%; max-height: 304px; object-fit: contain; }
-  .ficha-foto .sin-foto { font-size: 9pt; color: #bbb; text-align: center; }
+  .producto-foto img { max-width: 100%; max-height: 360px; object-fit: contain; }
+  .producto-foto .sin-foto { font-size: 10pt; color: #ccc; }
 
-  .ficha-info { }
-  .ficha-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
-  .ficha-numero {
+  /* Info: mitad inferior */
+  .producto-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .producto-numero {
     display: inline-block; background: #2e7d32; color: white;
-    font-size: 8pt; font-weight: bold; padding: 2px 9px;
-    border-radius: 10px; flex-shrink: 0;
+    font-size: 8.5pt; font-weight: bold; padding: 3px 10px;
+    border-radius: 12px; flex-shrink: 0;
   }
-  .ficha-nombre { font-size: 12pt; font-weight: bold; color: #111; line-height: 1.3; }
-  .ficha-codigo { font-size: 8pt; color: #999; font-family: monospace; margin-bottom: 10px; }
-  .ficha-specs { list-style: none; display: flex; flex-wrap: wrap; gap: 2px 30px; }
-  .ficha-specs li {
-    font-size: 9.5pt; color: #444; line-height: 1.75;
-    padding-left: 14px; position: relative; width: 45%;
+  .producto-nombre { font-size: 13pt; font-weight: bold; color: #111; line-height: 1.3; }
+  .producto-codigo { font-size: 8.5pt; color: #999; font-family: monospace; margin-bottom: 14px; }
+  .producto-specs { list-style: none; display: flex; flex-wrap: wrap; gap: 0 40px; }
+  .producto-specs li {
+    font-size: 10pt; color: #444; line-height: 1.8;
+    padding-left: 15px; position: relative; width: 45%;
   }
-  .ficha-specs li::before { content: "•"; position: absolute; left: 0; color: #2e7d32; font-weight: bold; }
+  .producto-specs li::before { content: "•"; position: absolute; left: 0; color: #2e7d32; font-weight: bold; }
 
   /* ── CONDICIONES ── */
   .conditions-title {
@@ -99,7 +79,7 @@
   .conditions p { font-size: 10.5pt; color: #333; line-height: 1.85; margin-bottom: 18px; }
   .conditions strong { color: #111; }
 
-  /* ── FOOTER ── */
+  /* ── FOOTER (solo última página) ── */
   .footer {
     margin-top: 30px; border-top: 3px solid #c8102e;
     padding-top: 12px; font-size: 9pt; color: #444;
@@ -110,10 +90,9 @@
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════
-     PÁGINA 1 — PRECIOS + FICHAS DE PRODUCTO
-     ══════════════════════════════════════════ -->
-
+<!-- ══════════════════════════════════════
+     PÁGINA 1 — COTIZACIÓN Y PRECIOS
+     ══════════════════════════════════════ -->
 <div class="header">
   <div>
     <div class="brand-name">Supply Argentina</div>
@@ -133,7 +112,6 @@
   </div>
 </div>
 
-<!-- Tabla de precios -->
 <table class="precios">
   <thead>
     <tr>
@@ -165,75 +143,89 @@
   </table>
 </div>
 
-<!-- Fichas de producto -->
-<div class="section-title">Fichas técnicas</div>
-
+<!-- ══════════════════════════════════════
+     UNA PÁGINA POR PRODUCTO
+     ══════════════════════════════════════ -->
 {% for linea in consulta.lineas.all %}
-<div class="ficha">
-  <div class="ficha-foto">
+<div style="page-break-before: always;">
+
+  <div class="header">
+    <div>
+      <div class="brand-name">Supply Argentina</div>
+      <div class="brand-sub">Fabricación y comercialización de Artículos Plásticos</div>
+    </div>
+    <div class="company-info">
+      <strong>SUPPLY ARGENTINA S.R.L. &nbsp; CUIT: 30-71892853-9</strong><br>
+      Neuquén 4044 – Villa Ballester – Buenos Aires<br>
+      www.supplyargentina.com.ar
+    </div>
+  </div>
+
+  <!-- Mitad superior: foto -->
+  <div class="producto-foto">
     {% if linea.producto.foto_data_uri %}
     <img src="{{ linea.producto.foto_data_uri }}" alt="{{ linea.descripcion }}">
     {% else %}
     <div class="sin-foto">Sin imagen disponible</div>
     {% endif %}
   </div>
-  <div class="ficha-info">
-    <div class="ficha-header">
-      <span class="ficha-numero">{{ forloop.counter }}</span>
-      <div class="ficha-nombre">{{ linea.descripcion }}</div>
+
+  <!-- Mitad inferior: nombre y especificaciones -->
+  <div>
+    <div class="producto-header">
+      <span class="producto-numero">{{ forloop.counter }}</span>
+      <div class="producto-nombre">{{ linea.descripcion }}</div>
     </div>
-    {% if linea.producto.codigo %}<div class="ficha-codigo">Código: {{ linea.producto.codigo }}</div>{% endif %}
+    {% if linea.producto.codigo %}
+    <div class="producto-codigo">Código: {{ linea.producto.codigo }}</div>
+    {% endif %}
     {% if linea.producto.especificaciones %}
-    <ul class="ficha-specs">
+    <ul class="producto-specs">
       {% for spec in linea.producto.especificaciones.splitlines %}
       {% if spec %}<li>{{ spec }}</li>{% endif %}
       {% endfor %}
     </ul>
     {% endif %}
   </div>
+
 </div>
 {% endfor %}
 
-<div class="footer">
-  <strong>Esperamos su favorable respuesta, atte.: {{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }} – Dpto. Ventas</strong><br>
-  {% if consulta.vendedor.email %}{{ consulta.vendedor.email }}{% endif %}<br>
-  Neuquén 4044 – Villa Ballester – Buenos Aires &nbsp;·&nbsp; www.supplyargentina.com.ar
-</div>
+<!-- ══════════════════════════════════════
+     ÚLTIMA PÁGINA — CONDICIONES
+     ══════════════════════════════════════ -->
+<div style="page-break-before: always;">
 
-<div class="page-break"></div>
-
-<!-- ══════════════════════════════════════════
-     ÚLTIMA PÁGINA — CONDICIONES DE SUMINISTRO
-     ══════════════════════════════════════════ -->
-
-<div class="header">
-  <div>
-    <div class="brand-name">Supply Argentina</div>
-    <div class="brand-sub">Fabricación y comercialización de Artículos Plásticos</div>
+  <div class="header">
+    <div>
+      <div class="brand-name">Supply Argentina</div>
+      <div class="brand-sub">Fabricación y comercialización de Artículos Plásticos</div>
+    </div>
+    <div class="company-info">
+      <strong>SUPPLY ARGENTINA S.R.L. &nbsp; CUIT: 30-71892853-9</strong><br>
+      Neuquén 4044 – Villa Ballester – Buenos Aires<br>
+      www.supplyargentina.com.ar
+    </div>
   </div>
-  <div class="company-info">
-    <strong>SUPPLY ARGENTINA S.R.L. &nbsp; CUIT: 30-71892853-9</strong><br>
-    Neuquén 4044 – Villa Ballester – Buenos Aires<br>
-    www.supplyargentina.com.ar
+
+  <div class="conditions-title">Condiciones de suministro</div>
+
+  <div class="conditions">
+    <p><strong>Tasa de IVA:</strong> 21%.</p>
+    <p><strong>Disponibilidad:</strong> A confirmar según cantidad y cola de fabricación.</p>
+    <p><strong>Mantenimiento de la oferta:</strong> 24hs.</p>
+    <p><strong>Pagos:</strong> 50% de anticipo por fabricación por Transferencia Bancaria, el saldo 50% por echeq a consultar – Otras a consultar.</p>
+    <p><strong>Moneda Extranjera:</strong> El material cotizado en moneda extranjera se facturará en esa moneda; el cliente podrá cancelar en Pesos Argentinos según tipo de cambio billete vendedor Banco de la Nación Argentina al día anterior de la factura, según normativa de ARCA.</p>
+    <p><strong>Entregas:</strong> A convenir, con costo a confirmar según zona de despacho. Retiros por Neuquén 4044 – Villa Ballester de lunes a viernes 8 a 13 y 14 a 16:30 hs, con 48 hs de previo aviso.</p>
+    <p><strong>Garantías:</strong> Solo por fallas de fabricación. Pasadas las 48 hs de recibido el material no se aceptan reclamos ni devoluciones.</p>
   </div>
-</div>
 
-<div class="conditions-title">Condiciones de suministro</div>
+  <div class="footer">
+    <strong>{{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }} – Dpto. Ventas &nbsp;·&nbsp; Supply Argentina S.R.L.</strong><br>
+    {% if consulta.vendedor.email %}{{ consulta.vendedor.email }}{% endif %}<br>
+    Neuquén 4044 – Villa Ballester – Buenos Aires &nbsp;·&nbsp; www.supplyargentina.com.ar
+  </div>
 
-<div class="conditions">
-  <p><strong>Tasa de IVA:</strong> 21%.</p>
-  <p><strong>Disponibilidad:</strong> A confirmar según cantidad y cola de fabricación.</p>
-  <p><strong>Mantenimiento de la oferta:</strong> 24hs.</p>
-  <p><strong>Pagos:</strong> 50% de anticipo por fabricación por Transferencia Bancaria, el saldo 50% por echeq a consultar – Otras a consultar.</p>
-  <p><strong>Moneda Extranjera:</strong> El material cotizado en moneda extranjera se facturará en esa moneda; el cliente podrá cancelar en Pesos Argentinos según tipo de cambio billete vendedor Banco de la Nación Argentina al día anterior de la factura, según normativa de ARCA.</p>
-  <p><strong>Entregas:</strong> A convenir, con costo a confirmar según zona de despacho. Retiros por Neuquén 4044 – Villa Ballester de lunes a viernes 8 a 13 y 14 a 16:30 hs, con 48 hs de previo aviso.</p>
-  <p><strong>Garantías:</strong> Solo por fallas de fabricación. Pasadas las 48 hs de recibido el material no se aceptan reclamos ni devoluciones.</p>
-</div>
-
-<div class="footer">
-  <strong>{{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }} – Dpto. Ventas &nbsp;·&nbsp; Supply Argentina S.R.L.</strong><br>
-  {% if consulta.vendedor.email %}{{ consulta.vendedor.email }}{% endif %}<br>
-  Neuquén 4044 – Villa Ballester – Buenos Aires &nbsp;·&nbsp; www.supplyargentina.com.ar
 </div>
 
 </body>
