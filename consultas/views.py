@@ -416,20 +416,67 @@ class ConsultaImportPDFView(LoginRequiredMixin, View):
         return render(request, 'consultas/import_pdf.html')
 
     def post(self, request):
-        pdf_file = request.FILES.get('pdf_file')
-        if not pdf_file:
-            messages.error(request, 'Seleccioná un archivo PDF.')
+        import datetime
+        pdf_files = request.FILES.getlist('pdf_file')
+        if not pdf_files:
+            messages.error(request, 'Seleccioná al menos un archivo PDF.')
             return render(request, 'consultas/import_pdf.html')
 
-        try:
-            data = _extraer_datos_cotizacion(pdf_file)
-        except Exception:
-            messages.error(request, 'No se pudo leer el PDF. Verificá que sea un archivo válido.')
-            return render(request, 'consultas/import_pdf.html')
+        # Un solo archivo: flujo original con review manual
+        if len(pdf_files) == 1:
+            try:
+                data = _extraer_datos_cotizacion(pdf_files[0])
+            except Exception:
+                messages.error(request, 'No se pudo leer el PDF. Verificá que sea un archivo válido.')
+                return render(request, 'consultas/import_pdf.html')
+            form = ConsultaForm(initial=data)
+            return render(request, 'consultas/form.html', {
+                'form': form,
+                'title': 'Importar cotización desde PDF',
+                'form_action': reverse('consultas:create'),
+            })
 
-        form = ConsultaForm(initial=data)
-        return render(request, 'consultas/form.html', {
-            'form': form,
-            'title': 'Importar cotización desde PDF',
-            'form_action': reverse('consultas:create'),
+        # Múltiples archivos: auto-crear sin review
+        resultados = []
+        for pdf_file in pdf_files:
+            resultado = {'nombre': pdf_file.name, 'ok': False, 'consulta': None, 'error': ''}
+            try:
+                data = _extraer_datos_cotizacion(pdf_file)
+                cliente = _get_or_create_cliente(
+                    razon_social=data.get('razon_social', ''),
+                    cuit=data.get('cuit', ''),
+                    contacto=data.get('razon_social', ''),
+                )
+                fecha = data.get('fecha')
+                if fecha:
+                    try:
+                        fecha = datetime.date.fromisoformat(fecha)
+                    except ValueError:
+                        fecha = datetime.date.today()
+                else:
+                    fecha = datetime.date.today()
+                consulta = Consulta.objects.create(
+                    fecha=fecha,
+                    productos=data.get('productos', ''),
+                    numero_cotizacion=data.get('numero_cotizacion', ''),
+                    via_entrada=data.get('via_entrada', 'mail'),
+                    razon_social=data.get('razon_social', ''),
+                    contacto=data.get('razon_social', ''),
+                    cuit=data.get('cuit', ''),
+                    estado=Consulta.COTIZADO,
+                    vendedor=request.user,
+                    cliente=cliente,
+                )
+                resultado['ok'] = True
+                resultado['consulta'] = consulta
+            except Exception as e:
+                resultado['error'] = str(e) or 'Error inesperado'
+            resultados.append(resultado)
+
+        creadas = sum(1 for r in resultados if r['ok'])
+        fallidas = len(resultados) - creadas
+        return render(request, 'consultas/import_pdf.html', {
+            'resultados': resultados,
+            'creadas': creadas,
+            'fallidas': fallidas,
         })
