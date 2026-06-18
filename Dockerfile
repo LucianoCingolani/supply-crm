@@ -20,4 +20,4 @@ COPY . .
 
 RUN SECRET_KEY=build-only-not-used-at-runtime python manage.py collectstatic --no-input
 
-CMD gunicorn config.wsgi --log-file -
+CMD python manage.py migrate --noinput && gunicorn config.wsgi --log-file -

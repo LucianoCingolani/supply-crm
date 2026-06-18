@@ -4,7 +4,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "gunicorn config.wsgi --log-file -",
+    "startCommand": "python manage.py migrate --noinput && gunicorn config.wsgi --log-file -",
     "restartPolicyType": "ON_FAILURE"
   }
 }
