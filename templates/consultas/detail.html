@@ -44,7 +44,13 @@
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Cliente</h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Cliente</h2>
+                {% if consulta.cliente %}
+                <a href="{% url 'clientes:detail' consulta.cliente.pk %}"
+                   class="text-xs text-blue-600 hover:text-blue-800 font-medium">Ver ficha del cliente →</a>
+                {% endif %}
+            </div>
             <dl class="grid grid-cols-2 gap-4 text-sm">
                 {% if consulta.razon_social %}<div class="col-span-2"><dt class="text-gray-400">Razón Social</dt><dd class="font-medium mt-1">{{ consulta.razon_social }}</dd></div>{% endif %}
                 {% if consulta.contacto %}<div><dt class="text-gray-400">Contacto</dt><dd class="font-medium mt-1">{{ consulta.contacto }}</dd></div>{% endif %}

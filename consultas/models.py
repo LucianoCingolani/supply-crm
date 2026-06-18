@@ -58,6 +58,13 @@ class Consulta(models.Model):
     fecha_seguimiento = models.DateField(null=True, blank=True)
 
     # Relaciones
+    cliente = models.ForeignKey(
+        'clientes.Cliente',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='consultas',
+        verbose_name='cliente',
+    )
     vendedor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

@@ -60,7 +60,11 @@
                         {% if c.cantidad %}<div class="text-gray-400">Cant: {{ c.cantidad }}</div>{% endif %}
                     </td>
                     <td class="px-4 py-3">
+                        {% if c.cliente %}
+                        <a href="{% url 'clientes:detail' c.cliente.pk %}" class="font-medium text-gray-900 hover:text-blue-600">{{ c.razon_social|default:"—" }}</a>
+                        {% else %}
                         <div class="font-medium text-gray-900">{{ c.razon_social|default:"—" }}</div>
+                        {% endif %}
                         <div class="text-gray-400">{{ c.contacto|default:"" }}</div>
                     </td>
                     <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ c.telefono|default:"—" }}</td>

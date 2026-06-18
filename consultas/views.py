@@ -16,6 +16,38 @@ from productos.models import Producto
 from .forms import ConsultaForm, FiltroConsultaForm, SeguimientoForm
 from .models import Consulta, LineaCotizacion
 
+def _get_or_create_cliente(cliente_id=None, razon_social='', cuit='', contacto='', telefono='', email=''):
+    from clientes.models import Cliente
+    razon_social = (razon_social or '').strip()
+    cuit = (cuit or '').strip()
+
+    if cliente_id:
+        cliente = Cliente.objects.filter(pk=cliente_id).first()
+        if cliente:
+            return cliente
+
+    if not razon_social and not cuit:
+        return None
+
+    if cuit:
+        cliente = Cliente.objects.filter(cuit=cuit).first()
+        if cliente:
+            return cliente
+
+    if razon_social:
+        cliente = Cliente.objects.filter(razon_social__iexact=razon_social).first()
+        if cliente:
+            return cliente
+
+    return Cliente.objects.create(
+        razon_social=razon_social or contacto or cuit,
+        contacto=(contacto or '').strip(),
+        cuit=cuit,
+        telefono=(telefono or '').strip(),
+        email=(email or '').strip(),
+    )
+
+
 _MESES_ES = {
     'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
     'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
@@ -106,6 +138,14 @@ class ConsultaCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             consulta = form.save(commit=False)
             consulta.vendedor = request.user
+            consulta.cliente = _get_or_create_cliente(
+                cliente_id=request.POST.get('cliente_id'),
+                razon_social=form.cleaned_data.get('razon_social', ''),
+                cuit=form.cleaned_data.get('cuit', ''),
+                contacto=form.cleaned_data.get('contacto', ''),
+                telefono=form.cleaned_data.get('telefono', ''),
+                email=form.cleaned_data.get('email', ''),
+            )
             consulta.save()
             messages.success(request, 'Consulta registrada.')
             return redirect('consultas:detail', pk=consulta.pk)
@@ -153,7 +193,16 @@ class ConsultaEditView(LoginRequiredMixin, View):
         consulta = self.get_consulta(request, pk)
         form = ConsultaForm(request.POST, instance=consulta)
         if form.is_valid():
-            form.save()
+            consulta = form.save(commit=False)
+            consulta.cliente = _get_or_create_cliente(
+                cliente_id=request.POST.get('cliente_id'),
+                razon_social=form.cleaned_data.get('razon_social', ''),
+                cuit=form.cleaned_data.get('cuit', ''),
+                contacto=form.cleaned_data.get('contacto', ''),
+                telefono=form.cleaned_data.get('telefono', ''),
+                email=form.cleaned_data.get('email', ''),
+            )
+            consulta.save()
             messages.success(request, 'Consulta actualizada.')
             return redirect('consultas:detail', pk=pk)
         return render(request, 'consultas/form.html', {
@@ -311,6 +360,14 @@ class NuevaCotizacionView(LoginRequiredMixin, View):
         # ── primer producto como descripción de la Consulta ──
         desc_consulta = lineas[0]['descripcion'][:300]
 
+        cliente = _get_or_create_cliente(
+            cliente_id=request.POST.get('cliente_id'),
+            razon_social=razon_social,
+            cuit=cuit,
+            contacto=contacto,
+            telefono=telefono,
+            email=email,
+        )
         consulta = Consulta.objects.create(
             fecha=fecha,
             productos=desc_consulta,
@@ -323,6 +380,7 @@ class NuevaCotizacionView(LoginRequiredMixin, View):
             email=email,
             estado=Consulta.COTIZADO,
             vendedor=request.user,
+            cliente=cliente,
         )
 
         for idx, l in enumerate(lineas):
