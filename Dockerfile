@@ -19,5 +19,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 RUN SECRET_KEY=build-only-not-used-at-runtime python manage.py collectstatic --no-input
+RUN chmod +x entrypoint.sh
 
-CMD python manage.py migrate --noinput && gunicorn config.wsgi --log-file -
+CMD ["sh", "entrypoint.sh"]
