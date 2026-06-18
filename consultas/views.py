@@ -63,17 +63,27 @@ def _extraer_datos_cotizacion(pdf_file):
 
     data = {'estado': 'cotizado', 'via_entrada': 'mail'}
 
-    # "Cotización 8366 — BERTINO MARIA PAULA— 27-27143554-7"
+    # Soporta ambos órdenes:
+    #   "Cotización N — NOMBRE — CUIT"
+    #   "Cotización N — CUIT— NOMBRE"  (sin espacio antes del dash)
     m = re.search(
-        r'Cotizaci[oó]n\s+(\d+)\s*[—–]+\s*(.+?)\s*[—–]+\s*(\d{2}-\d{8}-\d)',
+        r'Cotizaci[oó]n\s+(\d+)\s*[—–]+\s*(.+?)\s*[—–]+\s*(.+)',
         text,
     )
     if m:
         data['numero_cotizacion'] = m.group(1)
-        razon = m.group(2).strip()
-        data['razon_social'] = razon
-        data['contacto'] = razon
-        data['cuit'] = m.group(3).strip()
+        part_a = m.group(2).strip()
+        part_b = m.group(3).strip()
+        if re.match(r'^\d{2}-\d{8}-\d$', part_a):
+            data['cuit'] = part_a
+            data['razon_social'] = part_b
+            data['contacto'] = part_b
+        else:
+            data['razon_social'] = part_a
+            data['contacto'] = part_a
+            cuit_m = re.search(r'\d{2}-\d{8}-\d', part_b)
+            if cuit_m:
+                data['cuit'] = cuit_m.group(0)
 
     # "02 de junio 2026"
     m = re.search(r'(\d{1,2})\s+de\s+(\w+)\s+(\d{4})', text, re.IGNORECASE)
