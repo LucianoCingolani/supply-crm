@@ -32,6 +32,25 @@
         </form>
     </div>
 
+    <details class="mt-4">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">¿El PDF no se desgloza? Diagnóstico →</summary>
+        <div class="mt-3 bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <p class="text-xs text-gray-500 mb-3">Subí el PDF problemático y hacé clic en "Ver texto extraído" para ver qué lee el sistema.</p>
+            <form method="post" enctype="multipart/form-data" class="flex items-end gap-3">
+                {% csrf_token %}
+                <input type="file" name="pdf_file" accept=".pdf" required
+                    class="text-xs border border-gray-300 rounded px-2 py-1 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-gray-100">
+                <button type="submit" name="debug" value="1"
+                    class="px-3 py-1.5 bg-gray-600 text-white text-xs font-medium rounded hover:bg-gray-700">
+                    Ver texto extraído
+                </button>
+            </form>
+            {% if debug_texto %}
+            <pre class="mt-4 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-3 overflow-auto max-h-96 whitespace-pre-wrap">{{ debug_texto }}</pre>
+            {% endif %}
+        </div>
+    </details>
+
     <p class="text-xs text-gray-400 mt-4">
         Se extraen: número de cotización, fecha, razón social, CUIT y descripción del producto.
         El estado se carga como <strong>Cotizado</strong> por defecto.

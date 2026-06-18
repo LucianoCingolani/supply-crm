@@ -417,6 +417,21 @@ class ConsultaImportPDFView(LoginRequiredMixin, View):
 
     def post(self, request):
         import datetime
+        import pdfplumber
+
+        # Modo debug: muestra el texto crudo del primer PDF
+        if 'debug' in request.POST:
+            pdf_file = request.FILES.get('pdf_file')
+            if pdf_file:
+                try:
+                    with pdfplumber.open(pdf_file) as pdf:
+                        texto = '\n--- PÁGINA {} ---\n'.join(
+                            p.extract_text() or '(sin texto)' for p in pdf.pages[:3]
+                        )
+                except Exception as e:
+                    texto = f'Error al leer: {e}'
+                return render(request, 'consultas/import_pdf.html', {'debug_texto': texto})
+
         pdf_files = request.FILES.getlist('pdf_file')
         if not pdf_files:
             messages.error(request, 'Seleccioná al menos un archivo PDF.')
