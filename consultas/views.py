@@ -55,6 +55,10 @@ _MESES_ES = {
 }
 
 
+def _es_cuit(s):
+    return bool(re.match(r'^\d{2}-\d{8}-\d$', s) or re.match(r'^\d{11}$', s))
+
+
 def _extraer_datos_cotizacion(pdf_file):
     import pdfplumber
 
@@ -72,14 +76,14 @@ def _extraer_datos_cotizacion(pdf_file):
         data['numero_cotizacion'] = m.group(1)
         part_a = m.group(2).strip()
         part_b = m.group(3).strip()
-        if re.match(r'^\d{2}-\d{8}-\d$', part_a):
+        if _es_cuit(part_a):
             data['cuit'] = part_a
             data['razon_social'] = part_b
             data['contacto'] = part_b
         else:
             data['razon_social'] = part_a
             data['contacto'] = part_a
-            cuit_m = re.search(r'\d{2}-\d{8}-\d', part_b)
+            cuit_m = re.search(r'\d{2}-\d{8}-\d|\d{11}', part_b)
             if cuit_m:
                 data['cuit'] = cuit_m.group(0)
     else:
