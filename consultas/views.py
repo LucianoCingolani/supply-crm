@@ -63,9 +63,7 @@ def _extraer_datos_cotizacion(pdf_file):
 
     data = {'estado': 'cotizado', 'via_entrada': 'mail'}
 
-    # Soporta ambos órdenes:
-    #   "Cotización N — NOMBRE — CUIT"
-    #   "Cotización N — CUIT— NOMBRE"  (sin espacio antes del dash)
+    # Caso 1: dos separadores → "Cotización N — CUIT— NOMBRE" o "Cotización N — NOMBRE — CUIT"
     m = re.search(
         r'Cotizaci[oó]n\s+(\d+)\s*[—–]+\s*(.+?)\s*[—–]+\s*(.+)',
         text,
@@ -84,6 +82,14 @@ def _extraer_datos_cotizacion(pdf_file):
             cuit_m = re.search(r'\d{2}-\d{8}-\d', part_b)
             if cuit_m:
                 data['cuit'] = cuit_m.group(0)
+    else:
+        # Caso 2: un solo separador → "Cotización N — NOMBRE" (sin CUIT)
+        m = re.search(r'Cotizaci[oó]n\s+(\d+)\s*[—–]+\s*(.+)', text)
+        if m:
+            data['numero_cotizacion'] = m.group(1)
+            razon = m.group(2).strip()
+            data['razon_social'] = razon
+            data['contacto'] = razon
 
     # "02 de junio 2026"
     m = re.search(r'(\d{1,2})\s+de\s+(\w+)\s+(\d{4})', text, re.IGNORECASE)
