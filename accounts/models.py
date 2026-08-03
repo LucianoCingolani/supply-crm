@@ -39,6 +39,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=EMPLEADO, verbose_name='rol')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    must_change_password = models.BooleanField(
+        default=False,
+        verbose_name='debe cambiar la contraseña',
+        help_text='Al ingresar, se le va a exigir que elija una contraseña nueva.',
+    )
     date_joined = models.DateTimeField(auto_now_add=True)
 
     objects = CustomUserManager()

@@ -1,10 +1,17 @@
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from .forms import EmailLoginForm, PasswordChangeForm, UserCreateForm, UserEditForm
+from .forms import (
+    AdminSetPasswordForm,
+    CambiarPasswordPropiaForm,
+    EmailLoginForm,
+    UserCreateForm,
+    UserEditForm,
+)
 from .mixins import CapacidadRequeridaMixin
 
 User = get_user_model()
@@ -90,19 +97,63 @@ class UserPasswordView(GestionUsuariosMixin, View):
     def get(self, request, pk):
         user = self.get_usuario(pk)
         return render(request, 'accounts/users/form.html', {
-            'form': PasswordChangeForm(),
+            'form': AdminSetPasswordForm(usuario_objetivo=user),
             'title': f'Cambiar contraseña — {user.get_full_name() or user.email}',
         })
 
     def post(self, request, pk):
         user = self.get_usuario(pk)
-        form = PasswordChangeForm(request.POST)
+        form = AdminSetPasswordForm(request.POST, usuario_objetivo=user)
         if form.is_valid():
             user.set_password(form.cleaned_data['password1'])
+            user.must_change_password = form.cleaned_data['must_change_password']
             user.save()
-            messages.success(request, 'Contraseña actualizada.')
+            if user.must_change_password:
+                messages.success(
+                    request,
+                    f'Contraseña actualizada. {user.get_full_name() or user.email} '
+                    'va a tener que elegir una nueva al ingresar.')
+            else:
+                messages.success(request, 'Contraseña actualizada.')
             return redirect('accounts:user_list')
         return render(request, 'accounts/users/form.html', {
             'form': form,
             'title': f'Cambiar contraseña — {user.get_full_name() or user.email}',
         })
+
+
+class CambiarPasswordView(LoginRequiredMixin, View):
+    """La persona cambia su propia contraseña.
+
+    Es la única vista, junto con login y logout, a la que llega alguien con
+    `must_change_password`: el middleware redirige todo lo demás hacia acá.
+    """
+
+    def form(self, request, data=None):
+        return CambiarPasswordPropiaForm(
+            data,
+            usuario_objetivo=request.user,
+            exigir_actual=not request.user.must_change_password,
+        )
+
+    def contexto(self, request, form):
+        return {'form': form, 'obligatorio': request.user.must_change_password}
+
+    def get(self, request):
+        return render(request, 'accounts/cambiar_password.html',
+                      self.contexto(request, self.form(request)))
+
+    def post(self, request):
+        form = self.form(request, request.POST)
+        if not form.is_valid():
+            return render(request, 'accounts/cambiar_password.html',
+                          self.contexto(request, form))
+
+        user = request.user
+        user.set_password(form.cleaned_data['password1'])
+        user.must_change_password = False
+        user.save()
+        # set_password rota el hash de sesión: sin esto la persona queda deslogueada.
+        update_session_auth_hash(request, user)
+        messages.success(request, 'Listo, tu contraseña quedó actualizada.')
+        return redirect('dashboard')

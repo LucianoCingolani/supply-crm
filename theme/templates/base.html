@@ -32,7 +32,9 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-600">{{ user.get_full_name|default:user.email }}</span>
+                    <a href="{% url 'accounts:change_password' %}"
+                       class="text-sm text-gray-600 hover:text-blue-600"
+                       title="Cambiar mi contraseña">{{ user.get_full_name|default:user.email }}</a>
                     <form method="post" action="{% url 'accounts:logout' %}">
                         {% csrf_token %}
                         <button type="submit" class="text-sm text-gray-500 hover:text-red-600">Salir</button>
