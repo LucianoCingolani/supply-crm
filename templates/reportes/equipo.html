@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Panel del equipo - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="flex items-start justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Panel del equipo</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            {% if desde %}Consultas desde el {{ desde|date:"d/m/Y" }}{% else %}Todo el historial{% endif %}
+        </p>
+    </div>
+    {% include "reportes/_periodo.html" %}
+</div>
+
+<!-- Resumen del equipo -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Consultas</p>
+        <p class="mt-2 text-3xl font-bold text-gray-700">{{ totales.nuevas }}</p>
+        <p class="text-xs text-gray-400 mt-1">del período</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Facturadas</p>
+        <p class="mt-2 text-3xl font-bold text-green-500">{{ totales.facturadas }}</p>
+        <p class="text-xs text-gray-400 mt-1">del período</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Conversión</p>
+        <p class="mt-2 text-3xl font-bold text-blue-500">
+            {% if totales.conversion != None %}{{ totales.conversion }}%{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-400 mt-1">sobre las cerradas</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Activas</p>
+        <p class="mt-2 text-3xl font-bold text-yellow-500">{{ totales.activas }}</p>
+        <p class="text-xs text-gray-400 mt-1">abiertas hoy</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 {% if totales.frias %}border-2 border-amber-300{% else %}border border-gray-100{% endif %}">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Frías</p>
+        <p class="mt-2 text-3xl font-bold {% if totales.frias %}text-amber-600{% else %}text-gray-300{% endif %}">{{ totales.frias }}</p>
+        <p class="text-xs text-gray-400 mt-1">+{{ umbral_fria }} días sin mover</p>
+    </div>
+</div>
+
+<p class="-mt-4 mb-8 text-xs text-gray-400">
+    <strong class="font-medium text-gray-500">Consultas</strong>, <strong class="font-medium text-gray-500">Facturadas</strong>,
+    <strong class="font-medium text-gray-500">Conversión</strong> y <strong class="font-medium text-gray-500">Seguimientos</strong>
+    corresponden al período elegido. <strong class="font-medium text-gray-500">Activas</strong> y
+    <strong class="font-medium text-gray-500">Frías</strong> son el estado de la cartera hoy, sin importar el período.
+</p>
+
+<!-- Tabla por empleado -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-700">Por empleado</h2>
+        <span class="text-xs text-gray-400">Ordenado por consultas frías</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <tr>
+                    <th class="px-4 py-3 text-left" rowspan="2">Empleado</th>
+                    <th class="px-4 py-3 text-center border-l border-gray-200" colspan="4">En el período</th>
+                    <th class="px-4 py-3 text-center border-l border-gray-200" colspan="2">Cartera hoy</th>
+                    <th class="px-4 py-3 text-left border-l border-gray-200" rowspan="2">Última actividad</th>
+                    <th class="px-4 py-3" rowspan="2"></th>
+                </tr>
+                <tr>
+                    <th class="px-4 py-2 text-right font-normal normal-case border-l border-gray-200">Consultas</th>
+                    <th class="px-4 py-2 text-right font-normal normal-case">Facturadas</th>
+                    <th class="px-4 py-2 text-right font-normal normal-case">Conv.</th>
+                    <th class="px-4 py-2 text-right font-normal normal-case">Seguim.</th>
+                    <th class="px-4 py-2 text-right font-normal normal-case border-l border-gray-200">Activas</th>
+                    <th class="px-4 py-2 text-right font-normal normal-case">Frías</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for m in metricas %}
+                <tr class="hover:bg-gray-50 {% if m.frias %}bg-amber-50/40{% endif %}">
+                    <td class="px-4 py-3">
+                        <a href="{% url 'reportes:empleado' m.empleado.pk %}?dias={{ dias }}"
+                           class="font-medium text-gray-900 hover:text-blue-600">
+                            {{ m.empleado.get_full_name|default:m.empleado.email }}
+                        </a>
+                        <div class="text-xs">
+                            <span class="{% if m.empleado.is_admin %}text-red-500{% elif m.empleado.is_gerente %}text-purple-500{% else %}text-gray-400{% endif %}">
+                                {{ m.empleado.get_role_display }}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-right font-medium text-gray-900 border-l border-gray-100">{{ m.nuevas }}</td>
+                    <td class="px-4 py-3 text-right text-green-600 font-medium">{{ m.facturadas }}</td>
+                    <td class="px-4 py-3 text-right text-gray-600">
+                        {% if m.conversion != None %}{{ m.conversion }}%{% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right {% if m.seguimientos %}text-gray-600{% else %}text-gray-300{% endif %}">
+                        {{ m.seguimientos }}
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-600 border-l border-gray-100">{{ m.activas }}</td>
+                    <td class="px-4 py-3 text-right">
+                        {% if m.frias %}
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"
+                              title="Promedio: {{ m.dias_frias_promedio }} días sin movimiento">
+                            {{ m.frias }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-300">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-xs border-l border-gray-100">
+                        {% if m.sin_actividad_registrada %}
+                        <span class="text-gray-300">Sin actividad</span>
+                        {% elif m.dias_ultima_actividad == 0 %}
+                        <span class="text-green-600 font-medium">Hoy</span>
+                        {% elif m.dias_ultima_actividad <= 7 %}
+                        <span class="text-gray-600">hace {{ m.dias_ultima_actividad }} día{{ m.dias_ultima_actividad|pluralize }}</span>
+                        {% else %}
+                        <span class="text-amber-600">hace {{ m.dias_ultima_actividad }} días</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <a href="{% url 'consultas:list' %}?vendedor={{ m.empleado.pk }}"
+                           class="text-blue-600 hover:text-blue-800 text-xs font-medium whitespace-nowrap">Ver consultas</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-10 text-center text-gray-400">No hay empleados activos.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Consultas más frías del equipo -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 bg-amber-50">
+        <h2 class="font-semibold text-amber-800 text-sm">Consultas que necesitan atención</h2>
+        <p class="text-xs text-amber-700/70 mt-0.5">Las 15 activas con más tiempo sin seguimiento registrado</p>
+    </div>
+    <table class="min-w-full divide-y divide-gray-100 text-sm">
+        <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <tr>
+                <th class="px-4 py-3 text-right w-24">Sin mover</th>
+                <th class="px-4 py-3 text-left">Cliente</th>
+                <th class="px-4 py-3 text-left">Productos</th>
+                <th class="px-4 py-3 text-left">Estado</th>
+                <th class="px-4 py-3 text-left">Empleado</th>
+                <th class="px-4 py-3"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for c in frias %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <span class="font-semibold {% if c.dias_sin_movimiento >= 90 %}text-red-600{% elif c.dias_sin_movimiento >= umbral_fria %}text-amber-600{% else %}text-gray-500{% endif %}">
+                        {{ c.dias_sin_movimiento }} d
+                    </span>
+                </td>
+                <td class="px-4 py-3 font-medium text-gray-900">{{ c.razon_social|default:c.contacto|default:"—" }}</td>
+                <td class="px-4 py-3 text-gray-500">{{ c.productos|truncatechars:45 }}</td>
+                <td class="px-4 py-3">
+                    {% if c.estado == 'recontactar' %}
+                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Recontactar</span>
+                    {% else %}
+                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Cotizado</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-gray-500 text-xs">{{ c.vendedor.get_full_name|default:c.vendedor.email }}</td>
+                <td class="px-4 py-3 text-right">
+                    <a href="{% url 'consultas:detail' c.pk %}" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Ver</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-4 py-10 text-center text-gray-400">
+                    No hay consultas activas sin movimiento. 👌
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

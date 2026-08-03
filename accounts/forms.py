@@ -25,7 +25,19 @@ class EmailLoginForm(AuthenticationForm):
     )
 
 
-class UserCreateForm(forms.ModelForm):
+class RolesPermitidosMixin:
+    """Deja elegir el rol Admin solo si quien edita es Admin."""
+
+    def __init__(self, *args, editor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if editor is not None and not editor.puede_administrar_admins:
+            self.fields['role'].choices = [
+                (valor, etiqueta) for valor, etiqueta in User.ROLE_CHOICES
+                if valor != User.ADMIN
+            ]
+
+
+class UserCreateForm(RolesPermitidosMixin, forms.ModelForm):
     password1 = forms.CharField(
         label='Contraseña',
         widget=forms.PasswordInput(attrs={'class': INPUT_CLASS})
@@ -60,7 +72,7 @@ class UserCreateForm(forms.ModelForm):
         return user
 
 
-class UserEditForm(forms.ModelForm):
+class UserEditForm(RolesPermitidosMixin, forms.ModelForm):
     class Meta:
         model = User
         fields = ('email', 'first_name', 'last_name', 'role', 'is_active')

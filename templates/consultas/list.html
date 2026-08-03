@@ -28,6 +28,19 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>{{ filtro.buscar }}</div>
         <div>{{ filtro.estado }}</div>
+        {% if vendedores %}
+        <div>
+            <select name="vendedor"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="">Todos los vendedores</option>
+                {% for v in vendedores %}
+                <option value="{{ v.pk }}" {% if vendedor_activo == v.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ v.get_full_name|default:v.email }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
         <div class="flex gap-2">
             {{ filtro.via_entrada }}
             <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700 whitespace-nowrap">Filtrar</button>
@@ -47,7 +60,7 @@
                     <th class="px-4 py-3 text-left">Teléfono</th>
                     <th class="px-4 py-3 text-left">Estado</th>
                     <th class="px-4 py-3 text-left">Seguimiento</th>
-                    {% if user.is_gerente %}<th class="px-4 py-3 text-left">Vendedor</th>{% endif %}
+                    {% if user.puede_ver_todas_las_consultas %}<th class="px-4 py-3 text-left">Vendedor</th>{% endif %}
                     <th class="px-4 py-3"></th>
                 </tr>
             </thead>
@@ -88,7 +101,7 @@
                             {% endif %}
                         {% else %}—{% endif %}
                     </td>
-                    {% if user.is_gerente %}
+                    {% if user.puede_ver_todas_las_consultas %}
                     <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.vendedor.get_full_name|default:c.vendedor.email }}</td>
                     {% endif %}
                     <td class="px-4 py-3 text-right">

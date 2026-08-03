@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
 from .forms import EmailLoginForm, PasswordChangeForm, UserCreateForm, UserEditForm
-from .mixins import GerenteRequiredMixin
+from .mixins import CapacidadRequeridaMixin
 
 User = get_user_model()
 
@@ -20,18 +20,40 @@ class CustomLogoutView(LogoutView):
     next_page = 'accounts:login'
 
 
-class UserListView(GerenteRequiredMixin, View):
+class GestionUsuariosMixin(CapacidadRequeridaMixin):
+    """Base de las vistas de usuarios.
+
+    Un Gerente gestiona usuarios, pero no ve ni toca a los Admins: para él
+    esas cuentas no existen (404), y no puede asignar el rol Admin.
+    """
+
+    capacidad = 'puede_gestionar_usuarios'
+
+    def get_usuarios(self):
+        qs = User.objects.exclude(pk=self.request.user.pk)
+        if not self.request.user.puede_administrar_admins:
+            qs = qs.exclude(role=User.ADMIN)
+        return qs
+
+    def get_usuario(self, pk):
+        return get_object_or_404(self.get_usuarios(), pk=pk)
+
+
+class UserListView(GestionUsuariosMixin, View):
     def get(self, request):
-        users = User.objects.exclude(pk=request.user.pk).order_by('last_name', 'first_name')
+        users = self.get_usuarios().order_by('last_name', 'first_name')
         return render(request, 'accounts/users/list.html', {'users': users})
 
 
-class UserCreateView(GerenteRequiredMixin, View):
+class UserCreateView(GestionUsuariosMixin, View):
     def get(self, request):
-        return render(request, 'accounts/users/form.html', {'form': UserCreateForm(), 'title': 'Nuevo usuario'})
+        return render(request, 'accounts/users/form.html', {
+            'form': UserCreateForm(editor=request.user),
+            'title': 'Nuevo usuario',
+        })
 
     def post(self, request):
-        form = UserCreateForm(request.POST)
+        form = UserCreateForm(request.POST, editor=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Usuario creado correctamente.')
@@ -39,22 +61,19 @@ class UserCreateView(GerenteRequiredMixin, View):
         return render(request, 'accounts/users/form.html', {'form': form, 'title': 'Nuevo usuario'})
 
 
-class UserEditView(GerenteRequiredMixin, View):
-    def get_user(self, pk):
-        return get_object_or_404(User, pk=pk)
-
+class UserEditView(GestionUsuariosMixin, View):
     def get(self, request, pk):
-        user = self.get_user(pk)
+        user = self.get_usuario(pk)
         return render(request, 'accounts/users/form.html', {
-            'form': UserEditForm(instance=user),
+            'form': UserEditForm(instance=user, editor=request.user),
             'title': f'Editar — {user.get_full_name() or user.email}',
             'editing': True,
             'target_user': user,
         })
 
     def post(self, request, pk):
-        user = self.get_user(pk)
-        form = UserEditForm(request.POST, instance=user)
+        user = self.get_usuario(pk)
+        form = UserEditForm(request.POST, instance=user, editor=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Usuario actualizado.')
@@ -67,16 +86,16 @@ class UserEditView(GerenteRequiredMixin, View):
         })
 
 
-class UserPasswordView(GerenteRequiredMixin, View):
+class UserPasswordView(GestionUsuariosMixin, View):
     def get(self, request, pk):
-        user = get_object_or_404(User, pk=pk)
+        user = self.get_usuario(pk)
         return render(request, 'accounts/users/form.html', {
             'form': PasswordChangeForm(),
             'title': f'Cambiar contraseña — {user.get_full_name() or user.email}',
         })
 
     def post(self, request, pk):
-        user = get_object_or_404(User, pk=pk)
+        user = self.get_usuario(pk)
         form = PasswordChangeForm(request.POST)
         if form.is_valid():
             user.set_password(form.cleaned_data['password1'])

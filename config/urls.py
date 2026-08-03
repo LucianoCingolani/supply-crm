@@ -8,7 +8,7 @@ from consultas.models import Consulta
 
 @login_required
 def dashboard(request):
-    qs = Consulta.objects.all() if request.user.is_gerente else Consulta.objects.filter(vendedor=request.user)
+    qs = Consulta.objects.visibles_para(request.user)
     today = timezone.now().date()
     stats = {
         'cotizado': qs.filter(estado='cotizado').count(),
@@ -27,5 +27,6 @@ urlpatterns = [
     path('clientes/', include('clientes.urls')),
     path('consultas/', include('consultas.urls')),
     path('productos/', include('productos.urls')),
+    path('reportes/', include('reportes.urls')),
     path('__reload__/', include('django_browser_reload.urls')),
 ]

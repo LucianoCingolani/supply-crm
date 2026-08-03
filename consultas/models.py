@@ -1,6 +1,27 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import Max
+from django.db.models.functions import Coalesce
 from django.utils import timezone
+
+
+class ConsultaQuerySet(models.QuerySet):
+    def visibles_para(self, user):
+        """Acota a las consultas que `user` tiene permitido ver."""
+        if user.puede_ver_todas_las_consultas:
+            return self
+        return self.filter(vendedor=user)
+
+    def activas(self):
+        return self.filter(estado__in=Consulta.ESTADOS_ACTIVOS)
+
+    def con_ultimo_movimiento(self):
+        """Anota `ultimo_movimiento`: el último seguimiento registrado, o la
+        fecha de alta si nunca se registró ninguno.
+        """
+        return self.annotate(
+            ultimo_movimiento=Coalesce(Max('logs__fecha'), 'created_at'),
+        )
 
 
 class Consulta(models.Model):
@@ -73,6 +94,8 @@ class Consulta(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = ConsultaQuerySet.as_manager()
 
     class Meta:
         ordering = ['-fecha', '-created_at']

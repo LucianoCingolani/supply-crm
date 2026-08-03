@@ -1,17 +1,28 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
+from consultas.models import Consulta
 from .forms import ClienteForm
 from .models import Cliente
 
 
-class ClienteListView(LoginRequiredMixin, View):
+class ClienteAccesoMixin(LoginRequiredMixin):
+    """Da acceso solo a los clientes visibles para el usuario."""
+
+    def get_clientes(self):
+        return Cliente.objects.visibles_para(self.request.user)
+
+    def get_cliente(self, pk):
+        return get_object_or_404(self.get_clientes(), pk=pk)
+
+
+class ClienteListView(ClienteAccesoMixin, View):
     def get(self, request):
         q = request.GET.get('q', '').strip()
-        qs = Cliente.objects.annotate(total_consultas=Count('consultas'))
+        qs = self.get_clientes().con_total_consultas_para(request.user)
         if q:
             qs = qs.filter(
                 Q(razon_social__icontains=q) |
@@ -19,33 +30,57 @@ class ClienteListView(LoginRequiredMixin, View):
                 Q(contacto__icontains=q) |
                 Q(email__icontains=q)
             )
+
+        clientes = list(qs)
+        self._adjuntar_ultima_consulta(clientes, request.user)
+
         return render(request, 'clientes/list.html', {
-            'clientes': qs,
+            'clientes': clientes,
             'q': q,
-            'total': qs.count(),
+            'total': len(clientes),
         })
 
+    def _adjuntar_ultima_consulta(self, clientes, user):
+        """Setea `ultima_visible` en cada cliente con una sola query extra."""
+        if not clientes:
+            return
+        consultas = (
+            Consulta.objects.visibles_para(user)
+            .filter(cliente__in=clientes)
+            .order_by('cliente_id', '-fecha', '-created_at')
+        )
+        ultimas = {}
+        for consulta in consultas:
+            ultimas.setdefault(consulta.cliente_id, consulta)
+        for cliente in clientes:
+            cliente.ultima_visible = ultimas.get(cliente.pk)
 
-class ClienteDetailView(LoginRequiredMixin, View):
+
+class ClienteDetailView(ClienteAccesoMixin, View):
     def get(self, request, pk):
-        cliente = get_object_or_404(Cliente, pk=pk)
-        consultas = cliente.consultas.select_related('vendedor').order_by('-fecha', '-created_at')
+        cliente = self.get_cliente(pk)
+        consultas = (
+            Consulta.objects.visibles_para(request.user)
+            .filter(cliente=cliente)
+            .select_related('vendedor')
+            .order_by('-fecha', '-created_at')
+        )
         return render(request, 'clientes/detail.html', {
             'cliente': cliente,
             'consultas': consultas,
         })
 
 
-class ClienteEditView(LoginRequiredMixin, View):
+class ClienteEditView(ClienteAccesoMixin, View):
     def get(self, request, pk):
-        cliente = get_object_or_404(Cliente, pk=pk)
+        cliente = self.get_cliente(pk)
         return render(request, 'clientes/form.html', {
             'form': ClienteForm(instance=cliente),
             'cliente': cliente,
         })
 
     def post(self, request, pk):
-        cliente = get_object_or_404(Cliente, pk=pk)
+        cliente = self.get_cliente(pk)
         form = ClienteForm(request.POST, instance=cliente)
         if form.is_valid():
             form.save()
@@ -56,11 +91,11 @@ class ClienteEditView(LoginRequiredMixin, View):
         })
 
 
-class ClienteSearchView(LoginRequiredMixin, View):
+class ClienteSearchView(ClienteAccesoMixin, View):
     """Endpoint JSON para el autocomplete en formularios de consulta."""
     def get(self, request):
         q = request.GET.get('q', '').strip()
-        qs = Cliente.objects.all()
+        qs = self.get_clientes()
         if q:
             qs = qs.filter(
                 Q(razon_social__icontains=q) |

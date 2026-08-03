@@ -1,4 +1,22 @@
 from django.db import models
+from django.db.models import Count, Q
+
+
+class ClienteQuerySet(models.QuerySet):
+    def visibles_para(self, user):
+        """Acota a los clientes que `user` tiene permitido ver.
+
+        Un empleado ve únicamente los clientes con los que trabajó, es decir
+        aquellos que tienen al menos una consulta suya.
+        """
+        if user.puede_ver_todos_los_clientes:
+            return self
+        return self.filter(consultas__vendedor=user).distinct()
+
+    def con_total_consultas_para(self, user):
+        """Anota `total_consultas` contando solo las consultas visibles para `user`."""
+        filtro = Q() if user.puede_ver_todas_las_consultas else Q(consultas__vendedor=user)
+        return self.annotate(total_consultas=Count('consultas', filter=filtro, distinct=True))
 
 
 class Cliente(models.Model):
@@ -11,6 +29,8 @@ class Cliente(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = ClienteQuerySet.as_manager()
+
     class Meta:
         ordering = ['razon_social']
         verbose_name = 'cliente'
@@ -18,7 +38,3 @@ class Cliente(models.Model):
 
     def __str__(self):
         return self.razon_social
-
-    @property
-    def ultima_consulta(self):
-        return self.consultas.order_by('-fecha', '-created_at').first()

@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 
-from accounts.mixins import GerenteRequiredMixin
+from accounts.mixins import CapacidadRequeridaMixin
 from .models import Producto
 
 
@@ -16,8 +16,11 @@ class CatalogoView(LoginRequiredMixin, View):
         q = request.GET.get('q', '').strip()
         categoria = request.GET.get('categoria', '').strip()
 
+        # Se excluyen las categorías vacías: no son navegables y, si quedaran
+        # primeras, el redirect de abajo entraría en loop.
         categorias = (
             Producto.objects.filter(activo=True)
+            .exclude(categoria='')
             .values('categoria')
             .annotate(total=Count('id'))
             .order_by('categoria')
@@ -54,7 +57,9 @@ class ProductoDetailView(LoginRequiredMixin, View):
         return render(request, 'productos/detail.html', {'producto': producto})
 
 
-class ProductoEditView(GerenteRequiredMixin, View):
+class ProductoEditView(CapacidadRequeridaMixin, View):
+    capacidad = 'puede_editar_catalogo'
+
     def get(self, request, pk):
         producto = get_object_or_404(Producto, pk=pk)
         return render(request, 'productos/edit.html', {'producto': producto})

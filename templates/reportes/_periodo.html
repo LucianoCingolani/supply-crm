@@ -1,0 +1,10 @@
+{% comment %}Selector de período. Requiere `periodos`, `dias` y `desde` en el contexto.{% endcomment %}
+<form method="get" class="flex items-center gap-2">
+    <select name="dias" onchange="this.form.submit()"
+            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {% for valor, etiqueta in periodos %}
+        <option value="{{ valor }}" {% if valor == dias %}selected{% endif %}>{{ etiqueta }}</option>
+        {% endfor %}
+    </select>
+    <noscript><button type="submit" class="px-3 py-1.5 bg-gray-800 text-white text-sm rounded-lg">Aplicar</button></noscript>
+</form>

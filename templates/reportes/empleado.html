@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}{{ empleado.get_full_name|default:empleado.email }} - Panel del equipo{% endblock %}
+
+{% block content %}
+<div class="flex items-start justify-between mb-6">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'reportes:equipo' %}?dias={{ dias }}" class="text-gray-400 hover:text-gray-600">← Panel</a>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ empleado.get_full_name|default:empleado.email }}</h1>
+            <p class="text-sm text-gray-500 mt-0.5">
+                {{ empleado.get_role_display }} ·
+                {% if desde %}desde el {{ desde|date:"d/m/Y" }}{% else %}todo el historial{% endif %}
+            </p>
+        </div>
+    </div>
+    {% include "reportes/_periodo.html" %}
+</div>
+
+{% if metricas %}
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Consultas</p>
+        <p class="mt-2 text-3xl font-bold text-gray-700">{{ metricas.nuevas }}</p>
+        <p class="text-xs text-gray-400 mt-1">del período</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Facturadas</p>
+        <p class="mt-2 text-3xl font-bold text-green-500">{{ metricas.facturadas }}</p>
+        <p class="text-xs text-gray-400 mt-1">del período</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Conversión</p>
+        <p class="mt-2 text-3xl font-bold text-blue-500">
+            {% if metricas.conversion != None %}{{ metricas.conversion }}%{% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-gray-400 mt-1">sobre las cerradas</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Seguimientos</p>
+        <p class="mt-2 text-3xl font-bold {% if metricas.seguimientos %}text-gray-700{% else %}text-gray-300{% endif %}">
+            {{ metricas.seguimientos }}
+        </p>
+        <p class="text-xs text-gray-400 mt-1">del período</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5 {% if metricas.frias %}border-2 border-amber-300{% else %}border border-gray-100{% endif %}">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Frías</p>
+        <p class="mt-2 text-3xl font-bold {% if metricas.frias %}text-amber-600{% else %}text-gray-300{% endif %}">
+            {{ metricas.frias }}
+        </p>
+        <p class="text-xs text-gray-400 mt-1">de {{ metricas.activas }} activas hoy</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Consultas frías -->
+    <div class="lg:col-span-2 space-y-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-700">Consultas activas sin movimiento</h2>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        {% if hay_mas_frias %}
+                        Las {{ frias|length }} más quietas de {{ total_activas }} abiertas
+                        {% else %}
+                        Sus {{ total_activas }} consulta{{ total_activas|pluralize }} abierta{{ total_activas|pluralize }}, la más quieta primero
+                        {% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'consultas:list' %}?vendedor={{ empleado.pk }}"
+                   class="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">Ver todas →</a>
+            </div>
+            <table class="min-w-full divide-y divide-gray-100 text-sm">
+                <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <tr>
+                        <th class="px-4 py-3 text-right w-24">Sin mover</th>
+                        <th class="px-4 py-3 text-left">Cliente</th>
+                        <th class="px-4 py-3 text-left">Productos</th>
+                        <th class="px-4 py-3 text-left">Estado</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for c in frias %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <span class="font-semibold {% if c.dias_sin_movimiento >= 90 %}text-red-600{% elif c.dias_sin_movimiento >= umbral_fria %}text-amber-600{% else %}text-gray-500{% endif %}">
+                                {{ c.dias_sin_movimiento }} d
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-gray-900">{{ c.razon_social|default:c.contacto|default:"—" }}</td>
+                        <td class="px-4 py-3 text-gray-500">{{ c.productos|truncatechars:40 }}</td>
+                        <td class="px-4 py-3">
+                            {% if c.estado == 'recontactar' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Recontactar</span>
+                            {% else %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Cotizado</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <a href="{% url 'consultas:detail' c.pk %}" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Ver</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-400">No tiene consultas activas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Desglose y últimos seguimientos -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Por estado</h2>
+            <dl class="space-y-2 text-sm">
+                {% for d in desglose %}
+                <div class="flex justify-between items-center">
+                    <dt class="{% if d.total %}text-gray-600{% else %}text-gray-300{% endif %}">{{ d.etiqueta }}</dt>
+                    <dd class="font-semibold {% if d.total %}text-gray-900{% else %}text-gray-300{% endif %}">{{ d.total }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Últimos seguimientos</h2>
+            {% if seguimientos %}
+            <div class="space-y-3">
+                {% for log in seguimientos %}
+                <div class="border-l-2 border-gray-200 pl-3">
+                    <p class="text-sm text-gray-800">{{ log.nota|truncatechars:110 }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        {{ log.fecha|date:"d/m/Y H:i" }} ·
+                        <a href="{% url 'consultas:detail' log.consulta.pk %}" class="text-blue-600 hover:underline">
+                            {{ log.consulta.razon_social|default:"consulta"|truncatechars:26 }}
+                        </a>
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400">No registró ningún seguimiento todavía.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

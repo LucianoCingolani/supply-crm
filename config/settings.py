@@ -1,7 +1,11 @@
 from pathlib import Path
+import sys
+
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+TESTING = 'test' in sys.argv
 
 env = environ.Env(
     DEBUG=(bool, False)
@@ -28,6 +32,7 @@ INSTALLED_APPS = [
     'clientes',
     'consultas',
     'productos',
+    'reportes',
     'theme',
 ]
 
@@ -80,12 +85,18 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+# El manifest de whitenoise exige haber corrido collectstatic, así que en
+# desarrollo y en los tests usamos el storage plano.
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG or TESTING
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
     },
 }
 

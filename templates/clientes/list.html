@@ -59,7 +59,7 @@
                     </span>
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs">
-                    {% with uc=cliente.ultima_consulta %}
+                    {% with uc=cliente.ultima_visible %}
                     {% if uc %}
                         {{ uc.fecha|date:"d/m/Y" }}
                         <span class="ml-1

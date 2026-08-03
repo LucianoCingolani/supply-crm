@@ -3,6 +3,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.http import HttpResponse
@@ -11,11 +12,27 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
 
-from accounts.mixins import GerenteRequiredMixin
 from productos.models import Producto
 from .forms import ConsultaForm, FiltroConsultaForm, SeguimientoForm
 from .models import Consulta, LineaCotizacion
 
+
+class ConsultaAccesoMixin(LoginRequiredMixin):
+    """Da acceso solo a las consultas visibles para el usuario."""
+
+    def get_consultas(self):
+        return Consulta.objects.visibles_para(self.request.user)
+
+    def get_consulta(self, pk, *prefetch):
+        qs = self.get_consultas()
+        if prefetch:
+            qs = qs.prefetch_related(*prefetch)
+        return get_object_or_404(qs, pk=pk)
+
+
+# El matcheo de cliente es deliberadamente global (por CUIT y razón social) aunque
+# un empleado no vea todos los clientes: así se engancha al registro existente en
+# lugar de crear un duplicado, y a partir de ahí pasa a verlo.
 def _get_or_create_cliente(cliente_id=None, razon_social='', cuit='', contacto='', telefono='', email=''):
     from clientes.models import Cliente
     razon_social = (razon_social or '').strip()
@@ -112,9 +129,9 @@ def _extraer_datos_cotizacion(pdf_file):
     return data
 
 
-class ConsultaListView(LoginRequiredMixin, View):
+class ConsultaListView(ConsultaAccesoMixin, View):
     def get(self, request):
-        qs = self._get_queryset(request)
+        qs = self.get_consultas()
         filtro = FiltroConsultaForm(request.GET)
 
         if filtro.is_valid():
@@ -131,21 +148,24 @@ class ConsultaListView(LoginRequiredMixin, View):
                     Q(numero_cotizacion__icontains=q)
                 )
 
-        # Filtro por vendedor (solo gerente puede filtrar por otros)
-        vendedor_id = request.GET.get('vendedor')
-        if request.user.is_gerente and vendedor_id:
-            qs = qs.filter(vendedor_id=vendedor_id)
+        # Filtro por vendedor (solo quien ve todas las consultas puede filtrar por otros)
+        vendedor_id = request.GET.get('vendedor', '')
+        vendedores = None
+        if request.user.puede_ver_todas_las_consultas:
+            vendedores = get_user_model().objects.filter(
+                is_active=True, consultas__isnull=False,
+            ).distinct().order_by('last_name', 'first_name')
+            if vendedor_id.isdigit():
+                qs = qs.filter(vendedor_id=vendedor_id)
 
+        consultas = list(qs.select_related('vendedor', 'cliente'))
         return render(request, 'consultas/list.html', {
-            'consultas': qs.select_related('vendedor'),
+            'consultas': consultas,
             'filtro': filtro,
-            'total': qs.count(),
+            'total': len(consultas),
+            'vendedores': vendedores,
+            'vendedor_activo': vendedor_id,
         })
-
-    def _get_queryset(self, request):
-        if request.user.is_gerente:
-            return Consulta.objects.all()
-        return Consulta.objects.filter(vendedor=request.user)
 
 
 class ConsultaCreateView(LoginRequiredMixin, View):
@@ -172,20 +192,16 @@ class ConsultaCreateView(LoginRequiredMixin, View):
         return render(request, 'consultas/form.html', {'form': form, 'title': 'Nueva consulta'})
 
 
-class ConsultaDetailView(LoginRequiredMixin, View):
-    def get_consulta(self, request, pk):
-        qs = Consulta.objects.all() if request.user.is_gerente else Consulta.objects.filter(vendedor=request.user)
-        return get_object_or_404(qs.prefetch_related('logs__user'), pk=pk)
-
+class ConsultaDetailView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
-        consulta = self.get_consulta(request, pk)
+        consulta = self.get_consulta(pk, 'logs__user')
         return render(request, 'consultas/detail.html', {
             'consulta': consulta,
             'seg_form': SeguimientoForm(),
         })
 
     def post(self, request, pk):
-        consulta = self.get_consulta(request, pk)
+        consulta = self.get_consulta(pk)
         form = SeguimientoForm(request.POST)
         if form.is_valid():
             log = form.save(commit=False)
@@ -196,13 +212,9 @@ class ConsultaDetailView(LoginRequiredMixin, View):
         return redirect('consultas:detail', pk=pk)
 
 
-class ConsultaEditView(LoginRequiredMixin, View):
-    def get_consulta(self, request, pk):
-        qs = Consulta.objects.all() if request.user.is_gerente else Consulta.objects.filter(vendedor=request.user)
-        return get_object_or_404(qs, pk=pk)
-
+class ConsultaEditView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
-        consulta = self.get_consulta(request, pk)
+        consulta = self.get_consulta(pk)
         return render(request, 'consultas/form.html', {
             'form': ConsultaForm(instance=consulta),
             'title': f'Editar consulta',
@@ -210,7 +222,7 @@ class ConsultaEditView(LoginRequiredMixin, View):
         })
 
     def post(self, request, pk):
-        consulta = self.get_consulta(request, pk)
+        consulta = self.get_consulta(pk)
         form = ConsultaForm(request.POST, instance=consulta)
         if form.is_valid():
             consulta = form.save(commit=False)
@@ -232,13 +244,9 @@ class ConsultaEditView(LoginRequiredMixin, View):
         })
 
 
-class CotizacionView(LoginRequiredMixin, View):
-    def _get_consulta(self, request, pk):
-        qs = Consulta.objects.all() if request.user.is_gerente else Consulta.objects.filter(vendedor=request.user)
-        return get_object_or_404(qs.prefetch_related('lineas__producto'), pk=pk)
-
+class CotizacionView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
-        consulta = self._get_consulta(request, pk)
+        consulta = self.get_consulta(pk, 'lineas__producto')
         productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
         productos_json = json.dumps([
             {'id': p.pk, 'nombre': p.nombre, 'precio': float(p.precio) if p.precio else 0}
@@ -255,7 +263,7 @@ class CotizacionView(LoginRequiredMixin, View):
         })
 
     def post(self, request, pk):
-        consulta = self._get_consulta(request, pk)
+        consulta = self.get_consulta(pk)
         action = request.POST.get('action')
 
         if action == 'add':
@@ -282,10 +290,9 @@ class CotizacionView(LoginRequiredMixin, View):
         return redirect('consultas:cotizacion', pk=pk)
 
 
-class CotizacionPDFView(LoginRequiredMixin, View):
+class CotizacionPDFView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
-        qs = Consulta.objects.all() if request.user.is_gerente else Consulta.objects.filter(vendedor=request.user)
-        consulta = get_object_or_404(qs.prefetch_related('lineas__producto'), pk=pk)
+        consulta = self.get_consulta(pk, 'lineas__producto')
 
         total_neto = sum(l.subtotal for l in consulta.lineas.all())
         html = render_to_string('consultas/cotizacion_pdf.html', {
