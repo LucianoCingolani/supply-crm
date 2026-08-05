@@ -1,0 +1,30 @@
+{% comment %}
+Meter: un ratio contra un límite. Un solo tono — relleno sobre pista clara del
+mismo tono. El valor va afuera de la barra, nunca adentro: dentro habría que
+elegir tinta según la luminancia del relleno y se puede recortar.
+
+`valor_display` se recibe ya formateado ("7%" o "3"). No se calcula acá con el
+filtro `default`: se dispara con cualquier valor falsy, así que un 0 legítimo
+caía al fallback y se mostraba como "0%".
+
+Requiere: pct · valor_display · relleno · pista. Opcional: etiqueta · detalle.
+{% endcomment %}
+<div class="flex items-center gap-3">
+    {% if etiqueta %}
+    <span class="text-sm text-gray-700 w-28 flex-shrink-0 truncate" title="{{ etiqueta }}">{{ etiqueta }}</span>
+    {% endif %}
+    <div class="flex-1 min-w-0">
+        <div class="h-2.5 rounded-full overflow-hidden" style="background:{{ pista }}"
+             role="meter" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100"
+             aria-label="{{ etiqueta|default:'Progreso' }}: {{ valor_display }}">
+            {# 4px de radio en la punta del dato, cuadrado contra la línea base #}
+            <div class="h-full rounded-r" style="width:{{ pct }}%; background:{{ relleno }}"></div>
+        </div>
+    </div>
+    <span class="text-sm font-semibold text-gray-900 w-12 text-right flex-shrink-0 tabular-nums">
+        {{ valor_display }}
+    </span>
+    {% if detalle %}
+    <span class="text-xs text-gray-400 w-24 text-right flex-shrink-0 hidden sm:block">{{ detalle }}</span>
+    {% endif %}
+</div>

@@ -8,7 +8,7 @@
     <p class="text-gray-500 mt-1">Bienvenido, {{ user.get_full_name|default:user.email }}</p>
 </div>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <a href="{% url 'consultas:list' %}?estado=cotizado" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:shadow-md transition-shadow">
         <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Cotizadas</p>
         <p class="mt-2 text-3xl font-bold text-yellow-500">{{ stats.cotizado }}</p>
@@ -26,6 +26,102 @@
         <p class="mt-2 text-3xl font-bold text-gray-700">{{ stats.total }}</p>
     </div>
 </div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+    <!-- Reparto por estado — parte de un todo -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <h2 class="text-sm font-semibold text-gray-700">Estado de las consultas</h2>
+        <p class="text-xs text-gray-400 mt-0.5 mb-4">Sobre {{ reparto.total }} consulta{{ reparto.total|pluralize }} en total</p>
+        <div class="space-y-3">
+            {% for fila in reparto.filas %}
+            {% include "reportes/_meter.html" with etiqueta=fila.etiqueta pct=fila.pct valor_display=fila.pct_texto relleno=fila.relleno pista=fila.pista detalle=fila.total %}
+            {% endfor %}
+        </div>
+    </div>
+
+    {% include "reportes/_evolucion.html" %}
+</div>
+
+{% if metricas %}
+<!-- Comparativa por empleado — solo para quien puede ver reportes -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+    <div class="flex items-start justify-between mb-4">
+        <div>
+            <h2 class="text-sm font-semibold text-gray-700">Cotizado vs. vendido por empleado</h2>
+            <p class="text-xs text-gray-400 mt-0.5">
+                La barra es el porcentaje de sus consultas que terminó facturado
+            </p>
+        </div>
+        <a href="{% url 'reportes:equipo' %}"
+           class="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">Panel del equipo →</a>
+    </div>
+
+    <div class="space-y-3">
+        {% for m in metricas %}
+        {% include "reportes/_meter.html" with etiqueta=m.empleado.get_full_name|default:m.empleado.email pct=m.pct_facturado valor_display=m.pct_facturado_texto relleno=paleta.facturadas.relleno pista=paleta.facturadas.pista detalle=m.detalle_facturado %}
+        {% endfor %}
+    </div>
+
+    <details class="mt-4">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Ver los números</summary>
+        <div class="overflow-x-auto">
+            <table class="mt-2 w-full text-xs">
+                <thead class="text-gray-500 border-b border-gray-100">
+                    <tr>
+                        <th class="text-left py-1 font-medium">Empleado</th>
+                        <th class="text-right py-1 font-medium">Consultas</th>
+                        <th class="text-right py-1 font-medium">Facturadas</th>
+                        <th class="text-right py-1 font-medium">Perdidas</th>
+                        <th class="text-right py-1 font-medium">Activas</th>
+                        <th class="text-right py-1 font-medium">% vendido</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for m in metricas %}
+                    <tr>
+                        <td class="py-1 text-gray-600">{{ m.empleado.get_full_name|default:m.empleado.email }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ m.nuevas }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ m.facturadas }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ m.perdidas }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ m.activas }}</td>
+                        <td class="py-1 text-right font-semibold text-gray-900 tabular-nums">{{ m.pct_facturado }}%</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="border-t border-gray-200 font-semibold">
+                        <td class="py-1 text-gray-700">Total</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ totales.nuevas }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ totales.facturadas }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ totales.perdidas }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ totales.activas }}</td>
+                        <td class="py-1 text-right text-gray-900 tabular-nums">{{ totales.pct_facturado }}%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </details>
+</div>
+
+<!-- Ventas del mes en curso -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-700">Ventas de {{ hoy|date:"F" }}</h2>
+    <p class="text-xs text-gray-400 mt-0.5 mb-4">
+        Consultas facturadas este mes ·
+        <span class="font-medium text-gray-600">{{ totales.ventas_mes }} en total</span>
+    </p>
+    {% if totales.ventas_mes %}
+    <div class="space-y-3">
+        {% for m in metricas %}
+        {% widthratio m.ventas_mes max_ventas_mes 100 as pct_barra %}
+        {% include "reportes/_meter.html" with etiqueta=m.empleado.get_full_name|default:m.empleado.email pct=pct_barra valor_display=m.ventas_mes relleno=paleta.facturadas.relleno pista=paleta.facturadas.pista %}
+        {% endfor %}
+    </div>
+    <p class="text-xs text-gray-400 mt-3">Las barras son relativas a quien más vendió este mes.</p>
+    {% else %}
+    <p class="text-sm text-gray-400 py-4">Todavía no hay consultas facturadas este mes.</p>
+    {% endif %}
+</div>
+{% endif %}
 
 {% if pendientes %}
 <div class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden">

@@ -4,14 +4,18 @@ Separado de las views para poder testearlo sin pasar por HTTP.
 """
 
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q
+from django.db.models.functions import TruncMonth
 
 from consultas.models import Consulta, SeguimientoLog
 
 User = get_user_model()
+
+MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 # Períodos ofrecidos en el selector. 0 significa "sin límite".
 PERIODOS = [
@@ -47,6 +51,7 @@ class MetricasEmpleado:
     perdidas: int = 0
     seguimientos: int = 0
     frias: int = 0
+    ventas_mes: int = 0
     dias_ultima_actividad: int | None = None
     _dias_frias: list = field(default_factory=list, repr=False)
 
@@ -57,6 +62,25 @@ class MetricasEmpleado:
         if not cerradas:
             return None
         return round(self.facturadas * 100 / cerradas)
+
+    @property
+    def pct_facturado(self):
+        """Facturadas sobre el total del período. Es la barra del panel.
+
+        A diferencia de `conversion`, el denominador incluye las consultas
+        todavía abiertas: responde "de todo lo que cotizó, cuánto vendió".
+        """
+        if not self.nuevas:
+            return 0
+        return round(self.facturadas * 100 / self.nuevas)
+
+    @property
+    def pct_facturado_texto(self):
+        return f'{self.pct_facturado}%'
+
+    @property
+    def detalle_facturado(self):
+        return f'{self.facturadas} de {self.nuevas}'
 
     @property
     def dias_frias_promedio(self):
@@ -128,7 +152,18 @@ def calcular_metricas(user, hoy, dias=DIAS_POR_DEFECTO):
         if user_id in por_id:
             por_id[user_id].seguimientos = total
 
-    # 4) Última señal de actividad de cada empleado, sin límite de período.
+    # 4) Ventas del mes calendario en curso — "cómo les está yendo este mes".
+    ventas = (
+        visibles
+        .filter(estado__in=Consulta.ESTADOS_GANADOS,
+                fecha__year=hoy.year, fecha__month=hoy.month)
+        .values_list('vendedor').annotate(n=Count('id'))
+    )
+    for user_id, total in ventas:
+        if user_id in por_id:
+            por_id[user_id].ventas_mes = total
+
+    # 5) Última señal de actividad de cada empleado, sin límite de período.
     _cargar_ultima_actividad(por_id, hoy)
 
     # Los que más atención necesitan, primero.
@@ -155,16 +190,89 @@ def _cargar_ultima_actividad(por_id, hoy):
 def _totales(metricas):
     facturadas = sum(m.facturadas for m in metricas)
     perdidas = sum(m.perdidas for m in metricas)
+    nuevas = sum(m.nuevas for m in metricas)
     cerradas = facturadas + perdidas
     return {
-        'nuevas': sum(m.nuevas for m in metricas),
+        'nuevas': nuevas,
         'activas': sum(m.activas for m in metricas),
         'facturadas': facturadas,
         'perdidas': perdidas,
         'seguimientos': sum(m.seguimientos for m in metricas),
         'frias': sum(m.frias for m in metricas),
+        'ventas_mes': sum(m.ventas_mes for m in metricas),
         'conversion': round(facturadas * 100 / cerradas) if cerradas else None,
+        'pct_facturado': round(facturadas * 100 / nuevas) if nuevas else 0,
     }
+
+
+def reparto_por_estado(user, hoy, dias=DIAS_POR_DEFECTO):
+    """Parte-de-un-todo: cómo se reparten las consultas del período.
+
+    No es un embudo: una consulta está en un estado y solo uno, no atraviesa
+    etapas acumulativas. Cada fila se dibuja como su propia barra de un solo
+    tono y va rotulada, así el color refuerza pero nunca es el único canal.
+    """
+    qs = Consulta.objects.visibles_para(user)
+    desde = fecha_desde(dias, hoy)
+    if desde:
+        qs = qs.filter(fecha__gte=desde)
+
+    total = qs.count()
+    grupos = [
+        ('facturadas', 'Facturadas', Consulta.ESTADOS_GANADOS),
+        ('activas', 'Activas', Consulta.ESTADOS_ACTIVOS),
+        ('perdidas', 'Perdidas', Consulta.ESTADOS_PERDIDOS),
+    ]
+    filas = []
+    for clave, etiqueta, estados in grupos:
+        n = qs.filter(estado__in=estados).count()
+        pct = round(n * 100 / total) if total else 0
+        filas.append({
+            'clave': clave,
+            'etiqueta': etiqueta,
+            'total': n,
+            'pct': pct,
+            # Ya formateado: el meter no lo arma con `default`, que trata al 0 como ausente.
+            'pct_texto': f'{pct}%',
+        })
+    return {'total': total, 'filas': filas}
+
+
+def _meses_hacia_atras(hoy, cantidad):
+    """Lista de primeros-de-mes, del más viejo al actual."""
+    año, mes = hoy.year, hoy.month
+    meses = []
+    for _ in range(cantidad):
+        meses.append(date(año, mes, 1))
+        mes -= 1
+        if mes == 0:
+            año, mes = año - 1, 12
+    return list(reversed(meses))
+
+
+def evolucion_mensual(user, hoy, cantidad_meses=6):
+    """Consultas y facturadas por mes. Misma unidad, así que comparten un eje."""
+    meses = _meses_hacia_atras(hoy, cantidad_meses)
+    qs = (
+        Consulta.objects.visibles_para(user)
+        .filter(fecha__gte=meses[0])
+        .annotate(mes=TruncMonth('fecha'))
+        .values('mes')
+        .annotate(
+            total=Count('id'),
+            facturadas=Count('id', filter=Q(estado__in=Consulta.ESTADOS_GANADOS)),
+        )
+    )
+    por_mes = {d['mes']: d for d in qs}
+    return [
+        {
+            'mes': m,
+            'etiqueta': f'{MESES_CORTOS[m.month - 1]} {str(m.year)[2:]}',
+            'total': por_mes.get(m, {}).get('total', 0),
+            'facturadas': por_mes.get(m, {}).get('facturadas', 0),
+        }
+        for m in meses
+    ]
 
 
 def consultas_frias(user, hoy, vendedor=None, limite=None):

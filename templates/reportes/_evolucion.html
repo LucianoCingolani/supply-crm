@@ -1,0 +1,97 @@
+{% load l10n %}
+{% comment %}
+Evolución mensual: dos series de conteos sobre UN eje (misma unidad).
+Coordenadas calculadas en reportes/graficos.py. Leyenda presente porque hay
+dos series; solo se rotula el último punto de cada una. Tabla equivalente
+abajo, así ningún valor queda detrás de un tooltip.
+
+OJO: el SVG va envuelto en {% localize off %}. Con LANGUAGE_CODE='es-ar',
+Django escribe los decimales con coma, y en SVG x="38,0" no es 38.0 sino la
+LISTA [38, 0]: cada carácter del texto se posiciona por separado y el dibujo
+se destruye. Toda coordenada nueva tiene que quedar dentro del bloque.
+
+Requiere: grafico · evolucion · paleta
+{% endcomment %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <div class="flex items-start justify-between mb-1">
+        <div>
+            <h2 class="text-sm font-semibold text-gray-700">Evolución mensual</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Últimos {{ meses_evolucion }} meses</p>
+        </div>
+        <!-- Leyenda: obligatoria con dos series -->
+        <div class="flex items-center gap-4">
+            {% for s in grafico.series %}
+            <span class="flex items-center gap-1.5 text-xs text-gray-600">
+                <span class="inline-block w-3 h-0.5 rounded" style="background:{{ s.color }}"></span>
+                {{ s.nombre }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        {% localize off %}
+        <svg viewBox="0 0 {{ grafico.ancho }} {{ grafico.alto }}" width="100%"
+             style="min-width:420px" role="img"
+             aria-label="Consultas y facturadas por mes en los últimos {{ meses_evolucion }} meses">
+
+            <!-- Grilla: hairline sólida, recesiva -->
+            {% for y, tick in grafico.grillas %}
+            <line x1="{{ grafico.izq }}" y1="{{ y }}" x2="{{ grafico.der }}" y2="{{ y }}"
+                  stroke="#e1e0d9" stroke-width="1"/>
+            <text x="{{ grafico.izq }}" y="{{ y }}" dx="-8" dy="4"
+                  text-anchor="end" font-size="10" fill="#898781"
+                  style="font-variant-numeric:tabular-nums">{{ tick }}</text>
+            {% endfor %}
+
+            <!-- Etiquetas de mes -->
+            {% for x, texto in grafico.etiquetas_x %}
+            <text x="{{ x }}" y="{{ grafico.alto }}" dy="-6" text-anchor="middle"
+                  font-size="10" fill="#898781">{{ texto }}</text>
+            {% endfor %}
+
+            {% for s in grafico.series %}
+            <!-- Línea 2px, unión y punta redondeadas -->
+            <polyline points="{{ s.polilinea }}" fill="none" stroke="{{ s.color }}"
+                      stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            {% for p in s.puntos %}
+            <!-- Anillo de 2px en color superficie para que el punto se lea al cruzarse -->
+            <circle cx="{{ p.x }}" cy="{{ p.y }}" r="4" fill="{{ s.color }}"
+                    stroke="#ffffff" stroke-width="2">
+                <title>{{ p.etiqueta_mes }} — {{ s.nombre }}: {{ p.valor }}</title>
+            </circle>
+            {% endfor %}
+            <!-- Solo el último punto lleva rótulo directo, y solo si no choca
+                 con el de la otra serie (ver _resolver_colision_de_rotulos) -->
+            {% if s.etiquetar_final %}{% with u=s.ultimo %}
+            <text x="{{ u.x }}" y="{{ u.y }}" dx="10" dy="4" font-size="11"
+                  font-weight="600" fill="#52514e"
+                  style="font-variant-numeric:tabular-nums">{{ u.valor }}</text>
+            {% endwith %}{% endif %}
+            {% endfor %}
+        </svg>
+        {% endlocalize %}
+    </div>
+
+    <details class="mt-2">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Ver los números</summary>
+        <table class="mt-2 w-full text-xs">
+            <thead class="text-gray-500 border-b border-gray-100">
+                <tr>
+                    <th class="text-left py-1 font-medium">Mes</th>
+                    <th class="text-right py-1 font-medium">Consultas</th>
+                    <th class="text-right py-1 font-medium">Facturadas</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for f in evolucion %}
+                <tr>
+                    <td class="py-1 text-gray-600">{{ f.etiqueta }}</td>
+                    <td class="py-1 text-right text-gray-900 tabular-nums">{{ f.total }}</td>
+                    <td class="py-1 text-right text-gray-900 tabular-nums">{{ f.facturadas }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </details>
+</div>

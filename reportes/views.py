@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -7,6 +8,7 @@ from django.views import View
 from accounts.mixins import CapacidadRequeridaMixin
 from consultas.models import Consulta, SeguimientoLog
 
+from .graficos import PALETA, grafico_evolucion
 from .metricas import (
     DIAS_POR_DEFECTO,
     PERIODOS,
@@ -14,10 +16,65 @@ from .metricas import (
     calcular_metricas,
     consultas_frias,
     empleados_visibles,
+    evolucion_mensual,
     fecha_desde,
+    reparto_por_estado,
 )
 
 User = get_user_model()
+
+
+class DashboardView(LoginRequiredMixin, View):
+    """Portada. Muestra los gráficos del equipo a quien puede ver reportes;
+    al resto, los suyos propios."""
+
+    MESES_EVOLUCION = 6
+
+    def get(self, request):
+        hoy = timezone.localdate()
+        qs = Consulta.objects.visibles_para(request.user)
+
+        stats = {
+            'cotizado': qs.filter(estado=Consulta.COTIZADO).count(),
+            'facturado': qs.filter(estado=Consulta.FACTURADO).count(),
+            'recontactar': qs.filter(estado=Consulta.RECONTACTAR).count(),
+            'total': qs.count(),
+        }
+        pendientes = (
+            qs.filter(estado__in=Consulta.ESTADOS_ACTIVOS, fecha_seguimiento__lte=hoy)
+            .order_by('fecha_seguimiento')[:10]
+        )
+
+        filas_evolucion = evolucion_mensual(request.user, hoy, self.MESES_EVOLUCION)
+        contexto = {
+            'stats': stats,
+            'pendientes': pendientes,
+            'paleta': PALETA,
+            # Los colores se resuelven acá: el template no puede indexar un dict
+            # por una clave dinámica.
+            'reparto': self._reparto_con_colores(request.user, hoy),
+            'evolucion': filas_evolucion,
+            'grafico': grafico_evolucion(filas_evolucion),
+            'meses_evolucion': self.MESES_EVOLUCION,
+            'hoy': hoy,
+        }
+
+        # La comparativa entre personas solo la ve quien puede ver reportes:
+        # un empleado no debe leer los números de sus compañeros.
+        if request.user.puede_ver_reportes:
+            metricas, totales = calcular_metricas(request.user, hoy, dias=0)
+            contexto['metricas'] = [m for m in metricas if m.nuevas or m.activas]
+            contexto['totales'] = totales
+            contexto['max_ventas_mes'] = max(
+                [m.ventas_mes for m in contexto['metricas']] + [1])
+
+        return render(request, 'dashboard.html', contexto)
+
+    def _reparto_con_colores(self, user, hoy):
+        reparto = reparto_por_estado(user, hoy, dias=0)
+        for fila in reparto['filas']:
+            fila.update(PALETA[fila['clave']])
+        return reparto
 
 
 class ReporteBaseView(CapacidadRequeridaMixin, View):
