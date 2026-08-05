@@ -1,16 +1,26 @@
 from django.conf import settings
 from django.db import models
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 
 class ConsultaQuerySet(models.QuerySet):
     def visibles_para(self, user):
-        """Acota a las consultas que `user` tiene permitido ver."""
+        """Acota a las consultas que `user` tiene permitido ver.
+
+        Las consultas siguen al cliente: un empleado ve las de su cartera
+        asignada, así al recibir un cliente hereda el historial y el contexto
+        en lugar de arrancar a ciegas.
+
+        Se agregan las propias que todavía no tienen cliente, para que nada de
+        lo que cargó él mismo desaparezca de su vista.
+        """
         if user.puede_ver_todas_las_consultas:
             return self
-        return self.filter(vendedor=user)
+        return self.filter(
+            Q(cliente__vendedor=user) | Q(cliente__isnull=True, vendedor=user)
+        )
 
     def activas(self):
         return self.filter(estado__in=Consulta.ESTADOS_ACTIVOS)

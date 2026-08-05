@@ -30,19 +30,43 @@ class ConsultaAccesoMixin(LoginRequiredMixin):
         return get_object_or_404(qs, pk=pk)
 
 
-# El matcheo de cliente es deliberadamente global (por CUIT y razón social) aunque
-# un empleado no vea todos los clientes: así se engancha al registro existente en
-# lugar de crear un duplicado, y a partir de ahí pasa a verlo.
-def _get_or_create_cliente(cliente_id=None, razon_social='', cuit='', contacto='', telefono='', email=''):
+class ClienteAjenoError(Exception):
+    """El cliente existe pero está en la cartera de otro vendedor."""
+
+    def __init__(self, cliente):
+        self.cliente = cliente
+        super().__init__(str(cliente))
+
+
+def avisar_cliente_ajeno(cliente):
+    return (
+        f'«{cliente.razon_social}» ya está en la cartera de otro vendedor, '
+        'así que no podés cargarle consultas. Pedile al gerente que te lo asigne.'
+    )
+
+
+# El matcheo es deliberadamente global (por CUIT y razón social) aunque un
+# empleado solo vea su cartera: así se engancha al registro existente en lugar de
+# crear un duplicado. Pero si ese registro es de otro vendedor no se puede usar a
+# escondidas — la consulta quedaría cargada sobre un cliente que el empleado ni
+# ve. En ese caso avisa y el Gerente decide si le reasigna el cliente.
+def _get_or_create_cliente(cliente_id=None, razon_social='', cuit='', contacto='',
+                           telefono='', email='', para=None):
     from clientes.models import Cliente, normalizar_cuit
     razon_social = (razon_social or '').strip()
     # Se busca con el CUIT ya normalizado: es la forma en que quedan guardados.
     cuit = normalizar_cuit(cuit)
 
+    def verificar(cliente):
+        if cliente and para is not None and not para.puede_ver_todos_los_clientes:
+            if cliente.vendedor_id != para.pk:
+                raise ClienteAjenoError(cliente)
+        return cliente
+
     if cliente_id:
         cliente = Cliente.objects.filter(pk=cliente_id).first()
         if cliente:
-            return cliente
+            return verificar(cliente)
 
     if not razon_social and not cuit:
         return None
@@ -50,19 +74,21 @@ def _get_or_create_cliente(cliente_id=None, razon_social='', cuit='', contacto='
     if cuit:
         cliente = Cliente.objects.filter(cuit=cuit).first()
         if cliente:
-            return cliente
+            return verificar(cliente)
 
     if razon_social:
         cliente = Cliente.objects.filter(razon_social__iexact=razon_social).first()
         if cliente:
-            return cliente
+            return verificar(cliente)
 
+    # Un cliente nuevo queda en la cartera de quien lo trae.
     return Cliente.objects.create(
         razon_social=razon_social or contacto or cuit,
         contacto=(contacto or '').strip(),
         cuit=cuit,
         telefono=(telefono or '').strip(),
         email=(email or '').strip(),
+        vendedor=para if para is not None and not para.puede_ver_todos_los_clientes else None,
     )
 
 
@@ -179,17 +205,22 @@ class ConsultaCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             consulta = form.save(commit=False)
             consulta.vendedor = request.user
-            consulta.cliente = _get_or_create_cliente(
-                cliente_id=request.POST.get('cliente_id'),
-                razon_social=form.cleaned_data.get('razon_social', ''),
-                cuit=form.cleaned_data.get('cuit', ''),
-                contacto=form.cleaned_data.get('contacto', ''),
-                telefono=form.cleaned_data.get('telefono', ''),
-                email=form.cleaned_data.get('email', ''),
-            )
-            consulta.save()
-            messages.success(request, 'Consulta registrada.')
-            return redirect('consultas:detail', pk=consulta.pk)
+            try:
+                consulta.cliente = _get_or_create_cliente(
+                    cliente_id=request.POST.get('cliente_id'),
+                    razon_social=form.cleaned_data.get('razon_social', ''),
+                    cuit=form.cleaned_data.get('cuit', ''),
+                    contacto=form.cleaned_data.get('contacto', ''),
+                    telefono=form.cleaned_data.get('telefono', ''),
+                    email=form.cleaned_data.get('email', ''),
+                    para=request.user,
+                )
+            except ClienteAjenoError as e:
+                messages.error(request, avisar_cliente_ajeno(e.cliente))
+            else:
+                consulta.save()
+                messages.success(request, 'Consulta registrada.')
+                return redirect('consultas:detail', pk=consulta.pk)
         return render(request, 'consultas/form.html', {'form': form, 'title': 'Nueva consulta'})
 
 
@@ -227,17 +258,22 @@ class ConsultaEditView(ConsultaAccesoMixin, View):
         form = ConsultaForm(request.POST, instance=consulta)
         if form.is_valid():
             consulta = form.save(commit=False)
-            consulta.cliente = _get_or_create_cliente(
-                cliente_id=request.POST.get('cliente_id'),
-                razon_social=form.cleaned_data.get('razon_social', ''),
-                cuit=form.cleaned_data.get('cuit', ''),
-                contacto=form.cleaned_data.get('contacto', ''),
-                telefono=form.cleaned_data.get('telefono', ''),
-                email=form.cleaned_data.get('email', ''),
-            )
-            consulta.save()
-            messages.success(request, 'Consulta actualizada.')
-            return redirect('consultas:detail', pk=pk)
+            try:
+                consulta.cliente = _get_or_create_cliente(
+                    cliente_id=request.POST.get('cliente_id'),
+                    razon_social=form.cleaned_data.get('razon_social', ''),
+                    cuit=form.cleaned_data.get('cuit', ''),
+                    contacto=form.cleaned_data.get('contacto', ''),
+                    telefono=form.cleaned_data.get('telefono', ''),
+                    email=form.cleaned_data.get('email', ''),
+                    para=request.user,
+                )
+            except ClienteAjenoError as e:
+                messages.error(request, avisar_cliente_ajeno(e.cliente))
+            else:
+                consulta.save()
+                messages.success(request, 'Consulta actualizada.')
+                return redirect('consultas:detail', pk=pk)
         return render(request, 'consultas/form.html', {
             'form': form,
             'title': 'Editar consulta',
@@ -388,14 +424,26 @@ class NuevaCotizacionView(LoginRequiredMixin, View):
         # ── primer producto como descripción de la Consulta ──
         desc_consulta = lineas[0]['descripcion'][:300]
 
-        cliente = _get_or_create_cliente(
-            cliente_id=request.POST.get('cliente_id'),
-            razon_social=razon_social,
-            cuit=cuit,
-            contacto=contacto,
-            telefono=telefono,
-            email=email,
-        )
+        try:
+            cliente = _get_or_create_cliente(
+                cliente_id=request.POST.get('cliente_id'),
+                razon_social=razon_social,
+                cuit=cuit,
+                contacto=contacto,
+                telefono=telefono,
+                email=email,
+                para=request.user,
+            )
+        except ClienteAjenoError as e:
+            productos, productos_json = self._productos_ctx()
+            messages.error(request, avisar_cliente_ajeno(e.cliente))
+            return render(request, 'consultas/nueva_cotizacion.html', {
+                'productos': productos,
+                'productos_json': productos_json,
+                'hoy': fecha_str,
+                'post': request.POST,
+            })
+
         consulta = Consulta.objects.create(
             fecha=fecha,
             productos=desc_consulta,
@@ -489,6 +537,7 @@ class ConsultaImportPDFView(LoginRequiredMixin, View):
                     razon_social=data.get('razon_social', ''),
                     cuit=data.get('cuit', ''),
                     contacto=data.get('razon_social', ''),
+                    para=request.user,
                 )
                 fecha = data.get('fecha')
                 if fecha:

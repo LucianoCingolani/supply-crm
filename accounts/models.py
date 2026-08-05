@@ -99,6 +99,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.role in self.ROLES_VISION_TOTAL
 
     @property
+    def puede_asignar_clientes(self):
+        """Repartir la cartera es del Gerente: define qué cliente trabaja cada uno."""
+        return self.role in self.ROLES_VISION_TOTAL
+
+    @property
     def puede_editar_catalogo(self):
         return self.role in self.ROLES_VISION_TOTAL
 

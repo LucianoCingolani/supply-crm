@@ -1,5 +1,9 @@
 from django import forms
+from django.contrib.auth import get_user_model
+
 from .models import Cliente
+
+User = get_user_model()
 
 INPUT_CLASS = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
 TEXTAREA_CLASS = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -9,6 +13,19 @@ SELECT_CLASS = INPUT_CLASS + ' bg-white'
 
 
 class ClienteForm(forms.ModelForm):
+    """El campo `vendedor` solo aparece para quien puede repartir la cartera."""
+
+    def __init__(self, *args, editor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if editor is not None and not editor.puede_asignar_clientes:
+            del self.fields['vendedor']
+            return
+        candidatos = User.objects.filter(is_active=True)
+        if editor is not None and not editor.puede_administrar_admins:
+            candidatos = candidatos.exclude(role=User.ADMIN)
+        self.fields['vendedor'].queryset = candidatos.order_by('last_name', 'first_name')
+        self.fields['vendedor'].empty_label = '— Sin asignar —'
+
     class Meta:
         model = Cliente
         fields = [
@@ -16,6 +33,7 @@ class ClienteForm(forms.ModelForm):
             'telefono', 'email',
             'domicilio', 'localidad', 'provincia', 'codigo_postal',
             'condicion_fiscal', 'tipo_factura',
+            'vendedor',
             'notas',
         ]
         widgets = {
@@ -31,6 +49,7 @@ class ClienteForm(forms.ModelForm):
             'codigo_postal': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: 1754'}),
             'condicion_fiscal': forms.Select(attrs={'class': SELECT_CLASS}),
             'tipo_factura': forms.Select(attrs={'class': SELECT_CLASS}),
+            'vendedor': forms.Select(attrs={'class': SELECT_CLASS}),
             'notas': forms.Textarea(attrs={'class': TEXTAREA_CLASS, 'rows': 3, 'placeholder': 'Notas internas sobre este cliente...'}),
         }
         labels = {

@@ -1,5 +1,6 @@
 import re
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Count, Q
 
@@ -22,17 +23,24 @@ class ClienteQuerySet(models.QuerySet):
     def visibles_para(self, user):
         """Acota a los clientes que `user` tiene permitido ver.
 
-        Un empleado ve únicamente los clientes con los que trabajó, es decir
-        aquellos que tienen al menos una consulta suya.
+        Un empleado ve exactamente su cartera: los clientes que el Gerente le
+        asignó. No se deduce de las consultas — reasignar un cliente mueve la
+        relación completa.
         """
         if user.puede_ver_todos_los_clientes:
             return self
-        return self.filter(consultas__vendedor=user).distinct()
+        return self.filter(vendedor=user)
 
-    def con_total_consultas_para(self, user):
-        """Anota `total_consultas` contando solo las consultas visibles para `user`."""
-        filtro = Q() if user.puede_ver_todas_las_consultas else Q(consultas__vendedor=user)
-        return self.annotate(total_consultas=Count('consultas', filter=filtro, distinct=True))
+    def sin_asignar(self):
+        return self.filter(vendedor=None)
+
+    def con_total_consultas(self):
+        """Anota `total_consultas`.
+
+        Sin filtrar por vendedor: si el cliente es visible para alguien, ese
+        alguien ve todas sus consultas.
+        """
+        return self.annotate(total_consultas=Count('consultas', distinct=True))
 
 
 class Cliente(models.Model):
@@ -92,6 +100,18 @@ class Cliente(models.Model):
     tipo_factura = models.CharField(
         max_length=20, blank=True, choices=TIPO_FACTURA_CHOICES,
         verbose_name='Tipo de factura',
+    )
+
+    # ── Asignación ─────────────────────────────────────────────────
+    # Quién atiende a este cliente. Lo define el Gerente y determina qué ve
+    # cada empleado. SET_NULL para que desvincular a alguien no bloquee nada:
+    # el cliente queda sin asignar y se puede repartir de nuevo.
+    vendedor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='clientes',
+        verbose_name='vendedor asignado',
     )
 
     notas = models.TextField(blank=True)

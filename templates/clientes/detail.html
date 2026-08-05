@@ -59,6 +59,16 @@
                 </div>
                 {% endif %}
                 <div>
+                    <dt class="text-gray-400 text-xs">Vendedor asignado</dt>
+                    <dd class="mt-0.5">
+                        {% if cliente.vendedor %}
+                        <span class="font-medium">{{ cliente.vendedor.get_full_name|default:cliente.vendedor.email }}</span>
+                        {% else %}
+                        <span class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 font-medium">Sin asignar</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
                     <dt class="text-gray-400 text-xs">Cliente desde</dt>
                     <dd class="font-medium mt-0.5">{{ cliente.created_at|date:"d/m/Y" }}</dd>
                 </div>

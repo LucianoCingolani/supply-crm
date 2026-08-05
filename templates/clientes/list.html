@@ -6,32 +6,81 @@
 <div class="flex items-center justify-between mb-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Clientes</h1>
-        <p class="text-sm text-gray-500 mt-1">{{ total }} cliente{{ total|pluralize }}</p>
+        <p class="text-sm text-gray-500 mt-1">
+            {{ total }} cliente{{ total|pluralize }}
+            {% if sin_asignar_total %}
+            · <a href="?vendedor={{ sin_asignar_valor }}" class="text-amber-600 hover:underline">{{ sin_asignar_total }} sin asignar</a>
+            {% endif %}
+        </p>
     </div>
 </div>
 
 <form method="get" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
         <input type="text" name="q" value="{{ q }}"
                placeholder="Buscar por nombre, CUIT, DNI, localidad o provincia..."
-               class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+               class="flex-1 min-w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {% if vendedores %}
+        <select name="vendedor"
+                class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todos los vendedores</option>
+            <option value="{{ sin_asignar_valor }}" {% if vendedor_activo == sin_asignar_valor %}selected{% endif %}>— Sin asignar —</option>
+            {% for v in vendedores %}
+            <option value="{{ v.pk }}" {% if vendedor_activo == v.pk|stringformat:"s" %}selected{% endif %}>
+                {{ v.get_full_name|default:v.email }}
+            </option>
+            {% endfor %}
+        </select>
+        {% endif %}
         <button type="submit"
                 class="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700">Buscar</button>
-        {% if q %}
+        {% if q or vendedor_activo %}
         <a href="{% url 'clientes:list' %}"
            class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50">Limpiar</a>
         {% endif %}
     </div>
 </form>
 
+<form method="post" action="{% url 'clientes:asignar' %}" id="form-asignar">
+{% csrf_token %}
+<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+
+{% if puede_asignar %}
+<div id="barra-asignar"
+     class="hidden mb-4 flex flex-wrap items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+    <span class="text-sm text-blue-900"><strong id="contador-sel">0</strong> seleccionado(s)</span>
+    <select name="vendedor" required
+            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="">Asignar a...</option>
+        {% for v in vendedores %}
+        <option value="{{ v.pk }}">{{ v.get_full_name|default:v.email }}</option>
+        {% endfor %}
+        <option value="ninguno">— Quitar asignación —</option>
+    </select>
+    <button type="submit"
+            class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+        Asignar
+    </button>
+    <button type="button" id="btn-limpiar-sel"
+            class="text-sm text-gray-500 hover:text-gray-700">Deseleccionar</button>
+</div>
+{% endif %}
+
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
             <tr>
+                {% if puede_asignar %}
+                <th class="px-4 py-3 w-10">
+                    <input type="checkbox" id="check-todos" title="Seleccionar toda la página"
+                           class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </th>
+                {% endif %}
                 <th class="px-4 py-3 text-left">Razón social</th>
                 <th class="px-4 py-3 text-left">CUIT</th>
-                <th class="px-4 py-3 text-left">Contacto</th>
                 <th class="px-4 py-3 text-left">Ubicación</th>
+                <th class="px-4 py-3 text-left">Vendedor</th>
                 <th class="px-4 py-3 text-left">Teléfono</th>
                 <th class="px-4 py-3 text-center">Consultas</th>
                 <th class="px-4 py-3 text-left">Última consulta</th>
@@ -41,14 +90,26 @@
         <tbody class="divide-y divide-gray-100">
             {% for cliente in clientes %}
             <tr class="hover:bg-gray-50">
+                {% if puede_asignar %}
+                <td class="px-4 py-3">
+                    <input type="checkbox" name="cliente" value="{{ cliente.pk }}"
+                           class="check-cliente h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                </td>
+                {% endif %}
                 <td class="px-4 py-3 font-medium text-gray-900">
                     <a href="{% url 'clientes:detail' cliente.pk %}" class="hover:text-blue-600">
                         {{ cliente.razon_social }}
                     </a>
                 </td>
                 <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ cliente.cuit|default:"—" }}</td>
-                <td class="px-4 py-3 text-gray-600">{{ cliente.contacto|default:"—" }}</td>
                 <td class="px-4 py-3 text-gray-500 text-xs">{{ cliente.ubicacion|default:"—" }}</td>
+                <td class="px-4 py-3 text-xs">
+                    {% if cliente.vendedor %}
+                    <span class="text-gray-600">{{ cliente.vendedor.get_full_name|default:cliente.vendedor.email }}</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Sin asignar</span>
+                    {% endif %}
+                </td>
                 <td class="px-4 py-3 text-gray-600">
                     {% if cliente.telefono %}
                     <a href="https://wa.me/54{{ cliente.telefono|cut:' '|cut:'-'|cut:'+' }}"
@@ -81,14 +142,20 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="8" class="px-4 py-10 text-center text-gray-400">
+                <td colspan="{% if puede_asignar %}9{% else %}8{% endif %}" class="px-4 py-10 text-center text-gray-400">
+                    {% if user.puede_ver_todos_los_clientes %}
                     No hay clientes que coincidan.
+                    {% else %}
+                    Todavía no tenés clientes asignados. El gerente te va a asignar tu cartera.
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
+</form>
 
 {% if pagina.paginator.num_pages > 1 %}
 <div class="mt-4 flex items-center justify-between text-sm">
@@ -97,7 +164,7 @@
     </p>
     <div class="flex items-center gap-1">
         {% if pagina.has_previous %}
-        <a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}pagina={{ pagina.previous_page_number }}"
+        <a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}{% if vendedor_activo %}vendedor={{ vendedor_activo|urlencode }}&amp;{% endif %}pagina={{ pagina.previous_page_number }}"
            class="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">Anterior</a>
         {% else %}
         <span class="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-300 rounded-lg">Anterior</span>
@@ -108,12 +175,43 @@
         </span>
 
         {% if pagina.has_next %}
-        <a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}pagina={{ pagina.next_page_number }}"
+        <a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}{% if vendedor_activo %}vendedor={{ vendedor_activo|urlencode }}&amp;{% endif %}pagina={{ pagina.next_page_number }}"
            class="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">Siguiente</a>
         {% else %}
         <span class="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-300 rounded-lg">Siguiente</span>
         {% endif %}
     </div>
 </div>
+{% endif %}
+
+{% if puede_asignar %}
+<script>
+(function () {
+  const todos    = document.getElementById('check-todos');
+  const checks   = () => Array.from(document.querySelectorAll('.check-cliente'));
+  const barra    = document.getElementById('barra-asignar');
+  const contador = document.getElementById('contador-sel');
+  const limpiar  = document.getElementById('btn-limpiar-sel');
+
+  function refrescar() {
+    const n = checks().filter(c => c.checked).length;
+    contador.textContent = n;
+    barra.classList.toggle('hidden', n === 0);
+    todos.checked = n > 0 && n === checks().length;
+  }
+
+  todos.addEventListener('change', () => {
+    checks().forEach(c => { c.checked = todos.checked; });
+    refrescar();
+  });
+  checks().forEach(c => c.addEventListener('change', refrescar));
+  limpiar.addEventListener('click', () => {
+    checks().forEach(c => { c.checked = false; });
+    todos.checked = false;
+    refrescar();
+  });
+  refrescar();
+})();
+</script>
 {% endif %}
 {% endblock %}

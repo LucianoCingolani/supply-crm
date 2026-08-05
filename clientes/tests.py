@@ -283,6 +283,203 @@ class ListaClientesTest(TestCase):
         self.assertContains(resp, 'q=Empresa&amp;pagina=2')
 
 
+class AsignarCarteraTest(TestCase):
+    """El Gerente reparte la cartera; el vendedor trabaja lo que le tocó."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = User.objects.create_user('ad@test.com', 'x', first_name='Ana',
+                                             last_name='Admin', role=User.ADMIN)
+        cls.gerente = User.objects.create_user('g@test.com', 'x', first_name='Gaby',
+                                               last_name='Gerente', role=User.GERENTE)
+        cls.emp_a = User.objects.create_user('a@test.com', 'x', first_name='Ana',
+                                             last_name='Alfa', role=User.EMPLEADO)
+        cls.emp_b = User.objects.create_user('b@test.com', 'x', first_name='Beto',
+                                             last_name='Beta', role=User.EMPLEADO)
+
+    def setUp(self):
+        self.c1 = Cliente.objects.create(razon_social='Uno', cuit='30-11111111-1')
+        self.c2 = Cliente.objects.create(razon_social='Dos', cuit='30-22222222-2')
+        self.c3 = Cliente.objects.create(razon_social='Tres', cuit='30-33333333-3')
+
+    def asignar(self, ids, vendedor):
+        return self.client.post(reverse('clientes:asignar'),
+                                {'cliente': ids, 'vendedor': vendedor})
+
+    # ── permisos ──────────────────────────────────────────────────
+
+    def test_el_empleado_no_puede_asignar(self):
+        self.client.force_login(self.emp_a)
+        resp = self.asignar([self.c1.pk], self.emp_a.pk)
+        self.assertRedirects(resp, reverse('dashboard'))
+        self.c1.refresh_from_db()
+        self.assertIsNone(self.c1.vendedor)
+
+    def test_el_empleado_no_ve_los_checkboxes(self):
+        self.c1.vendedor = self.emp_a
+        self.c1.save()
+        self.client.force_login(self.emp_a)
+        resp = self.client.get(reverse('clientes:list'))
+        self.assertFalse(resp.context['puede_asignar'])
+        self.assertNotContains(resp, 'name="cliente"')
+
+    def test_el_gerente_ve_los_checkboxes(self):
+        self.client.force_login(self.gerente)
+        resp = self.client.get(reverse('clientes:list'))
+        self.assertTrue(resp.context['puede_asignar'])
+        self.assertContains(resp, 'name="cliente"')
+
+    # ── asignación ────────────────────────────────────────────────
+
+    def test_asigna_varios_de_una(self):
+        self.client.force_login(self.gerente)
+        self.asignar([self.c1.pk, self.c3.pk], self.emp_a.pk)
+        self.c1.refresh_from_db(); self.c2.refresh_from_db(); self.c3.refresh_from_db()
+        self.assertEqual(self.c1.vendedor, self.emp_a)
+        self.assertEqual(self.c3.vendedor, self.emp_a)
+        self.assertIsNone(self.c2.vendedor)
+
+    def test_reasigna_uno_que_ya_tenia_vendedor(self):
+        self.c1.vendedor = self.emp_a
+        self.c1.save()
+        self.client.force_login(self.gerente)
+        self.asignar([self.c1.pk], self.emp_b.pk)
+        self.c1.refresh_from_db()
+        self.assertEqual(self.c1.vendedor, self.emp_b)
+
+    def test_puede_quitar_la_asignacion(self):
+        self.c1.vendedor = self.emp_a
+        self.c1.save()
+        self.client.force_login(self.gerente)
+        self.asignar([self.c1.pk], 'ninguno')
+        self.c1.refresh_from_db()
+        self.assertIsNone(self.c1.vendedor)
+
+    def test_sin_seleccionar_nada_avisa(self):
+        self.client.force_login(self.gerente)
+        resp = self.client.post(reverse('clientes:asignar'), {'vendedor': self.emp_a.pk})
+        self.assertRedirects(resp, reverse('clientes:list'))
+        self.assertIsNone(Cliente.objects.get(pk=self.c1.pk).vendedor)
+
+    def test_un_vendedor_invalido_no_asigna_nada(self):
+        self.client.force_login(self.gerente)
+        self.asignar([self.c1.pk], 'cualquiera')
+        self.c1.refresh_from_db()
+        self.assertIsNone(self.c1.vendedor)
+
+    def test_el_gerente_no_puede_asignarle_a_un_admin(self):
+        self.client.force_login(self.gerente)
+        self.asignar([self.c1.pk], self.admin.pk)
+        self.c1.refresh_from_db()
+        self.assertIsNone(self.c1.vendedor)
+
+    def test_el_admin_si_puede_asignarse_a_si_mismo(self):
+        self.client.force_login(self.admin)
+        self.asignar([self.c1.pk], self.admin.pk)
+        self.c1.refresh_from_db()
+        self.assertEqual(self.c1.vendedor, self.admin)
+
+    def test_vuelve_al_filtro_desde_el_que_se_asigno(self):
+        self.client.force_login(self.gerente)
+        destino = reverse('clientes:list') + '?vendedor=sin'
+        resp = self.client.post(reverse('clientes:asignar'), {
+            'cliente': [self.c1.pk], 'vendedor': self.emp_a.pk, 'volver': destino})
+        self.assertRedirects(resp, destino)
+
+    # ── filtro por vendedor ───────────────────────────────────────
+
+    def test_filtra_los_sin_asignar(self):
+        self.c1.vendedor = self.emp_a
+        self.c1.save()
+        self.client.force_login(self.gerente)
+        resp = self.client.get(reverse('clientes:list'), {'vendedor': 'sin'})
+        self.assertEqual({c.razon_social for c in resp.context['clientes']}, {'Dos', 'Tres'})
+        self.assertEqual(resp.context['sin_asignar_total'], 2)
+
+    def test_filtra_por_un_vendedor(self):
+        self.c1.vendedor = self.emp_a
+        self.c1.save()
+        self.client.force_login(self.gerente)
+        resp = self.client.get(reverse('clientes:list'), {'vendedor': self.emp_a.pk})
+        self.assertEqual([c.razon_social for c in resp.context['clientes']], ['Uno'])
+
+    def test_el_empleado_no_puede_filtrar_por_otro_vendedor(self):
+        self.c1.vendedor = self.emp_a
+        self.c2.vendedor = self.emp_b
+        self.c1.save(); self.c2.save()
+        self.client.force_login(self.emp_a)
+        resp = self.client.get(reverse('clientes:list'), {'vendedor': self.emp_b.pk})
+        self.assertEqual([c.razon_social for c in resp.context['clientes']], ['Uno'])
+
+
+class ClienteAjenoTest(TestCase):
+    """Un empleado no puede cargar consultas sobre la cartera de otro."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.gerente = User.objects.create_user('g@test.com', 'x', first_name='G',
+                                               last_name='G', role=User.GERENTE)
+        cls.emp_a = User.objects.create_user('a@test.com', 'x', first_name='Ana',
+                                            last_name='Alfa', role=User.EMPLEADO)
+        cls.emp_b = User.objects.create_user('b@test.com', 'x', first_name='Beto',
+                                            last_name='Beta', role=User.EMPLEADO)
+
+    def crear_consulta(self, datos):
+        base = {'fecha': '2026-08-01', 'productos': 'Pallets',
+                'via_entrada': 'mail', 'estado': 'cotizado'}
+        return self.client.post(reverse('consultas:create'), {**base, **datos})
+
+    def test_no_puede_engancharse_a_un_cliente_de_otro_por_cuit(self):
+        from consultas.models import Consulta
+        Cliente.objects.create(razon_social='De Beto', cuit='30-60445647-5',
+                               vendedor=self.emp_b)
+        self.client.force_login(self.emp_a)
+        resp = self.crear_consulta({'razon_social': 'De Beto', 'cuit': '30604456475'})
+
+        self.assertEqual(resp.status_code, 200)   # se queda en el form
+        self.assertEqual(Consulta.objects.count(), 0)
+        self.assertContains(resp, 'ya está en la cartera de otro vendedor')
+
+    def test_un_cliente_nuevo_queda_en_la_cartera_de_quien_lo_trae(self):
+        from consultas.models import Consulta
+        self.client.force_login(self.emp_a)
+        self.crear_consulta({'razon_social': 'Nuevo SA', 'cuit': '30-70777384-3'})
+        cliente = Cliente.objects.get(razon_social='Nuevo SA')
+        self.assertEqual(cliente.vendedor, self.emp_a)
+        self.assertEqual(Consulta.objects.get().cliente, cliente)
+
+    def test_si_es_de_su_cartera_lo_usa_sin_problema(self):
+        from consultas.models import Consulta
+        mio = Cliente.objects.create(razon_social='Mío', cuit='30-60445647-5',
+                                     vendedor=self.emp_a)
+        self.client.force_login(self.emp_a)
+        self.crear_consulta({'razon_social': 'Mío', 'cuit': '30604456475'})
+        self.assertEqual(Consulta.objects.get().cliente_id, mio.pk)
+
+    def test_el_gerente_puede_usar_cualquier_cliente(self):
+        from consultas.models import Consulta
+        de_beto = Cliente.objects.create(razon_social='De Beto', cuit='30-60445647-5',
+                                         vendedor=self.emp_b)
+        self.client.force_login(self.gerente)
+        self.crear_consulta({'razon_social': 'De Beto', 'cuit': '30604456475'})
+        self.assertEqual(Consulta.objects.get().cliente_id, de_beto.pk)
+
+
+class ImportadorNoPisaAsignacionTest(BaseImportarTest):
+    def test_reimportar_conserva_el_vendedor(self):
+        """La lista del facturador no trae vendedor: no debe borrar la cartera."""
+        vendedor = User.objects.create_user('v@test.com', 'x', role=User.EMPLEADO)
+        self.importar([fila(id_cliente='7', razon='Los Grobo', cuit='30604456475')])
+        cliente = Cliente.objects.get()
+        cliente.vendedor = vendedor
+        cliente.save()
+
+        self.importar([fila(id_cliente='7', razon='Los Grobo SA', cuit='30604456475')])
+        cliente.refresh_from_db()
+        self.assertEqual(cliente.razon_social, 'Los Grobo SA')   # se actualiza
+        self.assertEqual(cliente.vendedor, vendedor)             # pero no se pisa
+
+
 class UbicacionTest(TestCase):
     def test_arma_localidad_y_provincia(self):
         c = Cliente(razon_social='X', localidad='San Justo', provincia='Buenos Aires')

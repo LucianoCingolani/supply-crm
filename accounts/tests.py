@@ -23,8 +23,11 @@ class BaseRolesTest(TestCase):
         cls.emp_b = User.objects.create_user(
             'b@test.com', 'x', first_name='Beto', last_name='Dos', role=User.EMPLEADO)
 
-        cls.cli_a = Cliente.objects.create(razon_social='Cliente de A', cuit='30-11111111-1')
-        cls.cli_b = Cliente.objects.create(razon_social='Cliente de B', cuit='30-22222222-2')
+        # La cartera la reparte el Gerente: es lo que define qué ve cada uno.
+        cls.cli_a = Cliente.objects.create(razon_social='Cliente de A', cuit='30-11111111-1',
+                                           vendedor=cls.emp_a)
+        cls.cli_b = Cliente.objects.create(razon_social='Cliente de B', cuit='30-22222222-2',
+                                           vendedor=cls.emp_b)
 
         cls.con_a = Consulta.objects.create(
             productos='Pallets', razon_social='Cliente de A',
@@ -80,7 +83,7 @@ class AlcanceConsultasTest(BaseRolesTest):
                 resp = self.client.get(reverse('consultas:list'))
                 self.assertEqual(resp.context['total'], 2)
 
-    def test_empleado_ve_solo_las_propias(self):
+    def test_empleado_ve_solo_las_de_su_cartera(self):
         self.login(self.emp_a)
         resp = self.client.get(reverse('consultas:list'))
         self.assertEqual(resp.context['total'], 1)
@@ -117,11 +120,41 @@ class AlcanceClientesTest(BaseRolesTest):
                 self.login(user)
                 self.assertEqual(self.client.get(reverse('clientes:list')).context['total'], 2)
 
-    def test_empleado_ve_solo_clientes_con_los_que_trabajo(self):
+    def test_empleado_ve_solo_su_cartera_asignada(self):
         self.login(self.emp_a)
         resp = self.client.get(reverse('clientes:list'))
         self.assertEqual(resp.context['total'], 1)
         self.assertEqual(resp.context['clientes'][0].pk, self.cli_a.pk)
+
+    def test_un_cliente_sin_asignar_no_lo_ve_ningun_empleado(self):
+        Cliente.objects.create(razon_social='Huérfano', cuit='30-99999999-9')
+        for empleado in (self.emp_a, self.emp_b):
+            with self.subTest(empleado=empleado.email):
+                self.login(empleado)
+                nombres = [c.razon_social for c in
+                           self.client.get(reverse('clientes:list')).context['clientes']]
+                self.assertNotIn('Huérfano', nombres)
+
+        self.login(self.gerente)
+        self.assertEqual(self.client.get(reverse('clientes:list')).context['total'], 3)
+
+    def test_reasignar_mueve_la_cartera_completa(self):
+        """La consulta la cargó emp_a, pero el cliente pasa a emp_b."""
+        self.cli_a.vendedor = self.emp_b
+        self.cli_a.save()
+
+        self.login(self.emp_b)
+        self.assertEqual(
+            [c.pk for c in self.client.get(reverse('clientes:list')).context['clientes']],
+            [self.cli_a.pk, self.cli_b.pk])
+        self.assertEqual(
+            self.client.get(reverse('consultas:detail', args=[self.con_a.pk])).status_code, 200)
+
+        # El anterior la pierde de vista, aunque la haya cargado él.
+        self.login(self.emp_a)
+        self.assertEqual(self.client.get(reverse('clientes:list')).context['total'], 0)
+        self.assertEqual(
+            self.client.get(reverse('consultas:detail', args=[self.con_a.pk])).status_code, 404)
 
     def test_empleado_no_accede_a_cliente_ajeno(self):
         self.login(self.emp_a)
@@ -143,21 +176,29 @@ class AlcanceClientesTest(BaseRolesTest):
         resp = self.client.get(reverse('clientes:search'), {'q': 'Cliente'})
         self.assertEqual([c['razon_social'] for c in resp.json()], ['Cliente de A'])
 
-    def test_historial_del_cliente_esta_acotado(self):
-        """Si dos empleados comparten un cliente, cada uno ve solo sus consultas."""
-        Consulta.objects.create(productos='Cajones', cliente=self.cli_a, vendedor=self.emp_b)
+    def test_el_asignado_ve_todo_el_historial_del_cliente(self):
+        """Hereda el contexto: incluye consultas que cargó otro vendedor."""
+        ajena = Consulta.objects.create(productos='Cajones', cliente=self.cli_a,
+                                        vendedor=self.emp_b)
         self.login(self.emp_a)
         resp = self.client.get(reverse('clientes:detail', args=[self.cli_a.pk]))
-        self.assertEqual([c.pk for c in resp.context['consultas']], [self.con_a.pk])
-        self.login(self.gerente)
-        resp = self.client.get(reverse('clientes:detail', args=[self.cli_a.pk]))
-        self.assertEqual(len(resp.context['consultas']), 2)
+        self.assertEqual({c.pk for c in resp.context['consultas']}, {self.con_a.pk, ajena.pk})
 
-    def test_total_consultas_cuenta_solo_lo_visible(self):
+    def test_total_consultas_cuenta_todas_las_del_cliente(self):
         Consulta.objects.create(productos='Cajones', cliente=self.cli_a, vendedor=self.emp_b)
         self.login(self.emp_a)
         resp = self.client.get(reverse('clientes:list'))
-        self.assertEqual(resp.context['clientes'][0].total_consultas, 1)
+        self.assertEqual(resp.context['clientes'][0].total_consultas, 2)
+
+    def test_el_empleado_conserva_sus_consultas_sin_cliente(self):
+        """Nada de lo que cargó él mismo desaparece por no tener cliente."""
+        suelta = Consulta.objects.create(productos='Sin cliente', vendedor=self.emp_a)
+        self.login(self.emp_a)
+        self.assertEqual(
+            self.client.get(reverse('consultas:detail', args=[suelta.pk])).status_code, 200)
+        self.login(self.emp_b)
+        self.assertEqual(
+            self.client.get(reverse('consultas:detail', args=[suelta.pk])).status_code, 404)
 
 
 class GestionUsuariosTest(BaseRolesTest):
