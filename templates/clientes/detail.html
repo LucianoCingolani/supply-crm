@@ -132,18 +132,60 @@
         {% endif %}
     </div>
 
-    <!-- Historial de consultas -->
-    <div class="lg:col-span-2">
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Seguimiento del cliente: una sola línea de tiempo -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">Registrar seguimiento</h2>
+            <form method="post">
+                {% csrf_token %}
+                {{ seg_form.nota }}
+                {% if seg_form.nota.errors %}
+                <p class="mt-1 text-xs text-red-600">{{ seg_form.nota.errors.0 }}</p>
+                {% endif %}
+                <button type="submit"
+                        class="mt-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                    Registrar
+                </button>
+            </form>
+
+            {% if seguimientos %}
+            <div class="mt-6 space-y-3">
+                {% for log in seguimientos %}
+                <div class="border-l-2 border-gray-200 pl-4 py-1">
+                    <p class="text-sm text-gray-800 whitespace-pre-line">{{ log.nota }}</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        {{ log.fecha|date:"d/m/Y H:i" }} — {{ log.user.get_full_name|default:log.user.email }}
+                        {% if log.consulta %}
+                        · <a href="{% url 'consultas:detail' log.consulta.pk %}"
+                             class="text-blue-600 hover:underline">{{ log.consulta.productos|truncatechars:32 }}</a>
+                        {% endif %}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="mt-4 text-sm text-gray-400">Todavía no hay seguimientos registrados.</p>
+            {% endif %}
+        </div>
+
+        <!-- Historial de consultas -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-4 border-b border-gray-100">
                 <h2 class="text-sm font-semibold text-gray-700">
                     Consultas
                     <span class="ml-2 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-600">{{ consultas.count }}</span>
                 </h2>
-                <a href="{% url 'consultas:create' %}?cliente_id={{ cliente.pk }}"
-                   class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
-                    + Nueva consulta
-                </a>
+                <div class="flex gap-2">
+                    <a href="{% url 'consultas:nueva_cotizacion' cliente.pk %}"
+                       class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">
+                        Nueva cotización
+                    </a>
+                    <a href="{% url 'consultas:create' cliente.pk %}"
+                       class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                        + Nueva consulta
+                    </a>
+                </div>
             </div>
             <table class="min-w-full divide-y divide-gray-100 text-sm">
                 <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">

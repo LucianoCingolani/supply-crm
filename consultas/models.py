@@ -135,7 +135,22 @@ class Consulta(models.Model):
 
 
 class SeguimientoLog(models.Model):
-    consulta = models.ForeignKey(Consulta, on_delete=models.CASCADE, related_name='logs')
+    """Una nota de seguimiento.
+
+    Cuelga del cliente, no de la cotización: así toda la conversación con el
+    cliente queda en una sola línea de tiempo, que es como se trabaja en la
+    práctica ("llamé, no contesta", "quedó en confirmar"). `consulta` queda
+    opcional, para las notas que sí son sobre una cotización puntual.
+    """
+
+    cliente = models.ForeignKey(
+        'clientes.Cliente', on_delete=models.CASCADE,
+        null=True, blank=True, related_name='seguimientos',
+    )
+    consulta = models.ForeignKey(
+        Consulta, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='logs',
+    )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     nota = models.TextField()
     fecha = models.DateTimeField(auto_now_add=True)

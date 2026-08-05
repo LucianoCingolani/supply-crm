@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.views import View
 
 from accounts.mixins import CapacidadRequeridaMixin
+from consultas.forms import SeguimientoForm
 from consultas.models import Consulta
 from .forms import ClienteForm
 from .models import Cliente, normalizar_cuit
@@ -112,18 +113,42 @@ class ClienteListView(ClienteAccesoMixin, View):
 
 
 class ClienteDetailView(ClienteAccesoMixin, View):
+    """Centro del flujo: desde acá se registra la consulta y el seguimiento."""
+
+    def contexto(self, request, cliente, seg_form=None):
+        return {
+            'cliente': cliente,
+            'consultas': (
+                Consulta.objects.visibles_para(request.user)
+                .filter(cliente=cliente)
+                .select_related('vendedor')
+                .order_by('-fecha', '-created_at')
+            ),
+            'seguimientos': (
+                cliente.seguimientos
+                .select_related('user', 'consulta')
+                .order_by('-fecha')
+            ),
+            'seg_form': seg_form or SeguimientoForm(),
+        }
+
     def get(self, request, pk):
         cliente = self.get_cliente(pk)
-        consultas = (
-            Consulta.objects.visibles_para(request.user)
-            .filter(cliente=cliente)
-            .select_related('vendedor')
-            .order_by('-fecha', '-created_at')
-        )
-        return render(request, 'clientes/detail.html', {
-            'cliente': cliente,
-            'consultas': consultas,
-        })
+        return render(request, 'clientes/detail.html', self.contexto(request, cliente))
+
+    def post(self, request, pk):
+        """Alta de un seguimiento del cliente."""
+        cliente = self.get_cliente(pk)
+        form = SeguimientoForm(request.POST)
+        if form.is_valid():
+            log = form.save(commit=False)
+            log.cliente = cliente
+            log.user = request.user
+            log.save()
+            messages.success(request, 'Seguimiento registrado.')
+            return redirect('clientes:detail', pk=pk)
+        return render(request, 'clientes/detail.html',
+                      self.contexto(request, cliente, seg_form=form))
 
 
 class ClienteEditView(ClienteAccesoMixin, View):

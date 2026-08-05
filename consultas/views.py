@@ -1,5 +1,4 @@
 import json
-import re
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -9,11 +8,10 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-from django.urls import reverse
 from django.views import View
 
 from productos.models import Producto
-from .forms import ConsultaForm, FiltroConsultaForm, SeguimientoForm
+from .forms import ConsultaClienteForm, FiltroConsultaForm, SeguimientoForm
 from .models import Consulta, LineaCotizacion
 
 
@@ -28,132 +26,6 @@ class ConsultaAccesoMixin(LoginRequiredMixin):
         if prefetch:
             qs = qs.prefetch_related(*prefetch)
         return get_object_or_404(qs, pk=pk)
-
-
-class ClienteAjenoError(Exception):
-    """El cliente existe pero está en la cartera de otro vendedor."""
-
-    def __init__(self, cliente):
-        self.cliente = cliente
-        super().__init__(str(cliente))
-
-
-def avisar_cliente_ajeno(cliente):
-    return (
-        f'«{cliente.razon_social}» ya está en la cartera de otro vendedor, '
-        'así que no podés cargarle consultas. Pedile al gerente que te lo asigne.'
-    )
-
-
-# El matcheo es deliberadamente global (por CUIT y razón social) aunque un
-# empleado solo vea su cartera: así se engancha al registro existente en lugar de
-# crear un duplicado. Pero si ese registro es de otro vendedor no se puede usar a
-# escondidas — la consulta quedaría cargada sobre un cliente que el empleado ni
-# ve. En ese caso avisa y el Gerente decide si le reasigna el cliente.
-def _get_or_create_cliente(cliente_id=None, razon_social='', cuit='', contacto='',
-                           telefono='', email='', para=None):
-    from clientes.models import Cliente, normalizar_cuit
-    razon_social = (razon_social or '').strip()
-    # Se busca con el CUIT ya normalizado: es la forma en que quedan guardados.
-    cuit = normalizar_cuit(cuit)
-
-    def verificar(cliente):
-        if cliente and para is not None and not para.puede_ver_todos_los_clientes:
-            if cliente.vendedor_id != para.pk:
-                raise ClienteAjenoError(cliente)
-        return cliente
-
-    if cliente_id:
-        cliente = Cliente.objects.filter(pk=cliente_id).first()
-        if cliente:
-            return verificar(cliente)
-
-    if not razon_social and not cuit:
-        return None
-
-    if cuit:
-        cliente = Cliente.objects.filter(cuit=cuit).first()
-        if cliente:
-            return verificar(cliente)
-
-    if razon_social:
-        cliente = Cliente.objects.filter(razon_social__iexact=razon_social).first()
-        if cliente:
-            return verificar(cliente)
-
-    # Un cliente nuevo queda en la cartera de quien lo trae.
-    return Cliente.objects.create(
-        razon_social=razon_social or contacto or cuit,
-        contacto=(contacto or '').strip(),
-        cuit=cuit,
-        telefono=(telefono or '').strip(),
-        email=(email or '').strip(),
-        vendedor=para if para is not None and not para.puede_ver_todos_los_clientes else None,
-    )
-
-
-_MESES_ES = {
-    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
-    'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
-    'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
-}
-
-
-def _es_cuit(s):
-    return bool(re.match(r'^\d{2}-\d{8}-\d$', s) or re.match(r'^\d{11}$', s))
-
-
-def _extraer_datos_cotizacion(pdf_file):
-    import pdfplumber
-
-    with pdfplumber.open(pdf_file) as pdf:
-        text = pdf.pages[0].extract_text() or '' if pdf.pages else ''
-
-    data = {'estado': 'cotizado', 'via_entrada': 'mail'}
-
-    # Caso 1: dos separadores → "Cotización N — CUIT— NOMBRE" o "Cotización N — NOMBRE — CUIT"
-    m = re.search(
-        r'Cotizaci[oó]n\s+(\d+)\s*[—–]+\s*(.+?)\s*[—–]+\s*(.+)',
-        text,
-    )
-    if m:
-        data['numero_cotizacion'] = m.group(1)
-        part_a = m.group(2).strip()
-        part_b = m.group(3).strip()
-        if _es_cuit(part_a):
-            data['cuit'] = part_a
-            data['razon_social'] = part_b
-            data['contacto'] = part_b
-        else:
-            data['razon_social'] = part_a
-            data['contacto'] = part_a
-            cuit_m = re.search(r'\d{2}-\d{8}-\d|\d{11}', part_b)
-            if cuit_m:
-                data['cuit'] = cuit_m.group(0)
-    else:
-        # Caso 2: un solo separador → "Cotización N — NOMBRE" (sin CUIT)
-        m = re.search(r'Cotizaci[oó]n\s+(\d+)\s*[—–]+\s*(.+)', text)
-        if m:
-            data['numero_cotizacion'] = m.group(1)
-            razon = m.group(2).strip()
-            data['razon_social'] = razon
-            data['contacto'] = razon
-
-    # "02 de junio 2026"
-    m = re.search(r'(\d{1,2})\s+de\s+(\w+)\s+(\d{4})', text, re.IGNORECASE)
-    if m:
-        mes = _MESES_ES.get(m.group(2).lower())
-        if mes:
-            data['fecha'] = f"{m.group(3)}-{mes:02d}-{int(m.group(1)):02d}"
-
-    # Product: line immediately after the "Cotización N —..." line
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    for i, line in enumerate(lines):
-        if re.search(r'Cotizaci[oó]n\s+\d+', line) and i + 1 < len(lines):
-            data['productos'] = lines[i + 1].rstrip(':')
-            break
-
-    return data
 
 
 class ConsultaListView(ConsultaAccesoMixin, View):
@@ -195,35 +67,6 @@ class ConsultaListView(ConsultaAccesoMixin, View):
         })
 
 
-class ConsultaCreateView(LoginRequiredMixin, View):
-    def get(self, request):
-        form = ConsultaForm(initial={'fecha': __import__('datetime').date.today()})
-        return render(request, 'consultas/form.html', {'form': form, 'title': 'Nueva consulta'})
-
-    def post(self, request):
-        form = ConsultaForm(request.POST)
-        if form.is_valid():
-            consulta = form.save(commit=False)
-            consulta.vendedor = request.user
-            try:
-                consulta.cliente = _get_or_create_cliente(
-                    cliente_id=request.POST.get('cliente_id'),
-                    razon_social=form.cleaned_data.get('razon_social', ''),
-                    cuit=form.cleaned_data.get('cuit', ''),
-                    contacto=form.cleaned_data.get('contacto', ''),
-                    telefono=form.cleaned_data.get('telefono', ''),
-                    email=form.cleaned_data.get('email', ''),
-                    para=request.user,
-                )
-            except ClienteAjenoError as e:
-                messages.error(request, avisar_cliente_ajeno(e.cliente))
-            else:
-                consulta.save()
-                messages.success(request, 'Consulta registrada.')
-                return redirect('consultas:detail', pk=consulta.pk)
-        return render(request, 'consultas/form.html', {'form': form, 'title': 'Nueva consulta'})
-
-
 class ConsultaDetailView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'logs__user')
@@ -238,6 +81,7 @@ class ConsultaDetailView(ConsultaAccesoMixin, View):
         if form.is_valid():
             log = form.save(commit=False)
             log.consulta = consulta
+            log.cliente = consulta.cliente   # también entra en la línea de tiempo del cliente
             log.user = request.user
             log.save()
             messages.success(request, 'Seguimiento registrado.')
@@ -245,39 +89,29 @@ class ConsultaDetailView(ConsultaAccesoMixin, View):
 
 
 class ConsultaEditView(ConsultaAccesoMixin, View):
+    """Edita los datos de la consulta. El cliente no se toca acá: se edita en su ficha."""
+
     def get(self, request, pk):
         consulta = self.get_consulta(pk)
         return render(request, 'consultas/form.html', {
-            'form': ConsultaForm(instance=consulta),
-            'title': f'Editar consulta',
+            'form': ConsultaClienteForm(instance=consulta),
+            'title': 'Editar consulta',
             'consulta': consulta,
+            'cliente': consulta.cliente,
         })
 
     def post(self, request, pk):
         consulta = self.get_consulta(pk)
-        form = ConsultaForm(request.POST, instance=consulta)
+        form = ConsultaClienteForm(request.POST, instance=consulta)
         if form.is_valid():
-            consulta = form.save(commit=False)
-            try:
-                consulta.cliente = _get_or_create_cliente(
-                    cliente_id=request.POST.get('cliente_id'),
-                    razon_social=form.cleaned_data.get('razon_social', ''),
-                    cuit=form.cleaned_data.get('cuit', ''),
-                    contacto=form.cleaned_data.get('contacto', ''),
-                    telefono=form.cleaned_data.get('telefono', ''),
-                    email=form.cleaned_data.get('email', ''),
-                    para=request.user,
-                )
-            except ClienteAjenoError as e:
-                messages.error(request, avisar_cliente_ajeno(e.cliente))
-            else:
-                consulta.save()
-                messages.success(request, 'Consulta actualizada.')
-                return redirect('consultas:detail', pk=pk)
+            form.save()
+            messages.success(request, 'Consulta actualizada.')
+            return redirect('consultas:detail', pk=pk)
         return render(request, 'consultas/form.html', {
             'form': form,
             'title': 'Editar consulta',
             'consulta': consulta,
+            'cliente': consulta.cliente,
         })
 
 
@@ -348,8 +182,58 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
         return response
 
 
-class NuevaCotizacionView(LoginRequiredMixin, View):
-    """Crea una cotización standalone: arma la Consulta en el fondo automáticamente."""
+class ClienteScopeMixin(LoginRequiredMixin):
+    """Vistas que arrancan de un cliente de la cartera del usuario."""
+
+    def get_cliente(self, pk):
+        from clientes.models import Cliente
+        return get_object_or_404(Cliente.objects.visibles_para(self.request.user), pk=pk)
+
+
+def copiar_datos_del_cliente(consulta, cliente):
+    """La Consulta guarda una copia de los datos del cliente al momento de cargarla.
+
+    Arrancando desde el cliente no hace falta tipearlos: se copian de la ficha.
+    """
+    consulta.cliente = cliente
+    consulta.razon_social = cliente.razon_social
+    consulta.contacto = cliente.contacto
+    consulta.cuit = cliente.cuit
+    consulta.telefono = cliente.telefono
+    consulta.email = cliente.email
+    return consulta
+
+
+class ConsultaCreateParaClienteView(ClienteScopeMixin, View):
+    """Registra una consulta sobre un cliente ya elegido."""
+
+    def get(self, request, cliente_pk):
+        import datetime
+        cliente = self.get_cliente(cliente_pk)
+        return render(request, 'consultas/form.html', {
+            'form': ConsultaClienteForm(initial={'fecha': datetime.date.today()}),
+            'title': 'Nueva consulta',
+            'cliente': cliente,
+        })
+
+    def post(self, request, cliente_pk):
+        cliente = self.get_cliente(cliente_pk)
+        form = ConsultaClienteForm(request.POST)
+        if form.is_valid():
+            consulta = copiar_datos_del_cliente(form.save(commit=False), cliente)
+            consulta.vendedor = request.user
+            consulta.save()
+            messages.success(request, 'Consulta registrada.')
+            return redirect('consultas:detail', pk=consulta.pk)
+        return render(request, 'consultas/form.html', {
+            'form': form,
+            'title': 'Nueva consulta',
+            'cliente': cliente,
+        })
+
+
+class NuevaCotizacionView(ClienteScopeMixin, View):
+    """Cotiza a un cliente de la cartera: arma la Consulta en el fondo."""
 
     def _productos_ctx(self):
         productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
@@ -359,46 +243,75 @@ class NuevaCotizacionView(LoginRequiredMixin, View):
         ])
         return productos, productos_json
 
-    def get(self, request):
+    def _render(self, request, cliente, fecha_str=None, post=None):
         import datetime
         productos, productos_json = self._productos_ctx()
         return render(request, 'consultas/nueva_cotizacion.html', {
+            'cliente': cliente,
             'productos': productos,
             'productos_json': productos_json,
-            'hoy': datetime.date.today().isoformat(),
+            'hoy': fecha_str or datetime.date.today().isoformat(),
+            'post': post,
         })
 
-    def post(self, request):
+    def get(self, request, cliente_pk):
+        return self._render(request, self.get_cliente(cliente_pk))
+
+    def post(self, request, cliente_pk):
         import datetime
+        cliente = self.get_cliente(cliente_pk)
 
-        # ── datos del cliente ──
-        razon_social = request.POST.get('razon_social', '').strip()
-        cuit         = request.POST.get('cuit', '').strip()
-        contacto     = request.POST.get('contacto', '').strip()
-        telefono     = request.POST.get('telefono', '').strip()
-        email        = request.POST.get('email', '').strip()
-        nro_cot      = request.POST.get('numero_cotizacion', '').strip()
-        fecha_str    = request.POST.get('fecha', '')
-        via          = request.POST.get('via_entrada', 'mail')
-
+        nro_cot = request.POST.get('numero_cotizacion', '').strip()
+        fecha_str = request.POST.get('fecha', '')
+        via = request.POST.get('via_entrada', 'mail')
         try:
             fecha = datetime.date.fromisoformat(fecha_str)
         except (ValueError, TypeError):
             fecha = datetime.date.today()
 
-        # ── líneas enviadas como campos indexados ──
-        lineas = []
-        i = 0
+        lineas = self._leer_lineas(request)
+        if not lineas:
+            messages.error(request, 'Agregá al menos un producto a la cotización.')
+            return self._render(request, cliente, fecha_str, request.POST)
+
+        consulta = copiar_datos_del_cliente(
+            Consulta(
+                fecha=fecha,
+                # El primer producto describe la consulta.
+                productos=lineas[0]['descripcion'][:300],
+                numero_cotizacion=nro_cot,
+                via_entrada=via,
+                estado=Consulta.COTIZADO,
+                vendedor=request.user,
+            ),
+            cliente,
+        )
+        consulta.save()
+
+        for orden, l in enumerate(lineas):
+            LineaCotizacion.objects.create(
+                consulta=consulta,
+                descripcion=l['descripcion'],
+                cantidad=l['cantidad'],
+                precio_unitario=l['precio_unitario'],
+                orden=orden,
+                producto=Producto.objects.filter(pk=l['producto_id']).first()
+                if l['producto_id'] else None,
+            )
+
+        return redirect('consultas:cotizacion', pk=consulta.pk)
+
+    def _leer_lineas(self, request):
+        """Las líneas llegan como campos indexados: linea_desc_0, linea_cant_0, ..."""
+        lineas, i = [], 0
         while True:
-            desc   = request.POST.get(f'linea_desc_{i}', '').strip()
-            cant   = request.POST.get(f'linea_cant_{i}', '')
+            desc = request.POST.get(f'linea_desc_{i}', '').strip()
+            cant = request.POST.get(f'linea_cant_{i}', '')
             precio = request.POST.get(f'linea_precio_{i}', '')
-            prod_id = request.POST.get(f'linea_prod_{i}', '')
             if not desc and not cant:
                 break
             try:
-                cant_d   = Decimal(cant)
-                precio_d = Decimal(precio)
+                cant_d, precio_d = Decimal(cant), Decimal(precio)
             except InvalidOperation:
                 i += 1
                 continue
@@ -407,71 +320,10 @@ class NuevaCotizacionView(LoginRequiredMixin, View):
                     'descripcion': desc,
                     'cantidad': cant_d,
                     'precio_unitario': precio_d,
-                    'producto_id': prod_id or None,
+                    'producto_id': request.POST.get(f'linea_prod_{i}', ''),
                 })
             i += 1
-
-        if not lineas:
-            productos, productos_json = self._productos_ctx()
-            messages.error(request, 'Agregá al menos un producto a la cotización.')
-            return render(request, 'consultas/nueva_cotizacion.html', {
-                'productos': productos,
-                'productos_json': productos_json,
-                'hoy': fecha_str,
-                'post': request.POST,
-            })
-
-        # ── primer producto como descripción de la Consulta ──
-        desc_consulta = lineas[0]['descripcion'][:300]
-
-        try:
-            cliente = _get_or_create_cliente(
-                cliente_id=request.POST.get('cliente_id'),
-                razon_social=razon_social,
-                cuit=cuit,
-                contacto=contacto,
-                telefono=telefono,
-                email=email,
-                para=request.user,
-            )
-        except ClienteAjenoError as e:
-            productos, productos_json = self._productos_ctx()
-            messages.error(request, avisar_cliente_ajeno(e.cliente))
-            return render(request, 'consultas/nueva_cotizacion.html', {
-                'productos': productos,
-                'productos_json': productos_json,
-                'hoy': fecha_str,
-                'post': request.POST,
-            })
-
-        consulta = Consulta.objects.create(
-            fecha=fecha,
-            productos=desc_consulta,
-            numero_cotizacion=nro_cot,
-            via_entrada=via,
-            razon_social=razon_social,
-            contacto=contacto or razon_social,
-            cuit=cuit,
-            telefono=telefono,
-            email=email,
-            estado=Consulta.COTIZADO,
-            vendedor=request.user,
-            cliente=cliente,
-        )
-
-        for idx, l in enumerate(lineas):
-            lc = LineaCotizacion(
-                consulta=consulta,
-                descripcion=l['descripcion'],
-                cantidad=l['cantidad'],
-                precio_unitario=l['precio_unitario'],
-                orden=idx,
-            )
-            if l['producto_id']:
-                lc.producto = Producto.objects.filter(pk=l['producto_id']).first()
-            lc.save()
-
-        return redirect('consultas:cotizacion', pk=consulta.pk)
+        return lineas
 
 
 class ProductoFotoView(LoginRequiredMixin, View):
@@ -485,90 +337,3 @@ class ProductoFotoView(LoginRequiredMixin, View):
         response['Cache-Control'] = 'private, max-age=604800'  # 7 días
         response['Vary'] = 'Cookie'
         return response
-
-
-class ConsultaImportPDFView(LoginRequiredMixin, View):
-    def get(self, request):
-        return render(request, 'consultas/import_pdf.html')
-
-    def post(self, request):
-        import datetime
-        import pdfplumber
-
-        # Modo debug: muestra el texto crudo del primer PDF
-        if 'debug' in request.POST:
-            pdf_file = request.FILES.get('pdf_file')
-            if pdf_file:
-                try:
-                    with pdfplumber.open(pdf_file) as pdf:
-                        texto = '\n--- PÁGINA {} ---\n'.join(
-                            p.extract_text() or '(sin texto)' for p in pdf.pages[:3]
-                        )
-                except Exception as e:
-                    texto = f'Error al leer: {e}'
-                return render(request, 'consultas/import_pdf.html', {'debug_texto': texto})
-
-        pdf_files = request.FILES.getlist('pdf_file')
-        if not pdf_files:
-            messages.error(request, 'Seleccioná al menos un archivo PDF.')
-            return render(request, 'consultas/import_pdf.html')
-
-        # Un solo archivo: flujo original con review manual
-        if len(pdf_files) == 1:
-            try:
-                data = _extraer_datos_cotizacion(pdf_files[0])
-            except Exception:
-                messages.error(request, 'No se pudo leer el PDF. Verificá que sea un archivo válido.')
-                return render(request, 'consultas/import_pdf.html')
-            form = ConsultaForm(initial=data)
-            return render(request, 'consultas/form.html', {
-                'form': form,
-                'title': 'Importar cotización desde PDF',
-                'form_action': reverse('consultas:create'),
-            })
-
-        # Múltiples archivos: auto-crear sin review
-        resultados = []
-        for pdf_file in pdf_files:
-            resultado = {'nombre': pdf_file.name, 'ok': False, 'consulta': None, 'error': ''}
-            try:
-                data = _extraer_datos_cotizacion(pdf_file)
-                cliente = _get_or_create_cliente(
-                    razon_social=data.get('razon_social', ''),
-                    cuit=data.get('cuit', ''),
-                    contacto=data.get('razon_social', ''),
-                    para=request.user,
-                )
-                fecha = data.get('fecha')
-                if fecha:
-                    try:
-                        fecha = datetime.date.fromisoformat(fecha)
-                    except ValueError:
-                        fecha = datetime.date.today()
-                else:
-                    fecha = datetime.date.today()
-                consulta = Consulta.objects.create(
-                    fecha=fecha,
-                    productos=data.get('productos', ''),
-                    numero_cotizacion=data.get('numero_cotizacion', ''),
-                    via_entrada=data.get('via_entrada', 'mail'),
-                    razon_social=data.get('razon_social', ''),
-                    contacto=data.get('razon_social', ''),
-                    cuit=data.get('cuit', ''),
-                    estado=Consulta.COTIZADO,
-                    vendedor=request.user,
-                    cliente=cliente,
-                )
-                resultado['ok'] = True
-                resultado['consulta'] = consulta
-            except Exception as e:
-                resultado['error'] = str(e) or 'Error inesperado'
-            resultados.append(resultado)
-
-        creadas = sum(1 for r in resultados if r['ok'])
-        fallidas = len(resultados) - creadas
-        return render(request, 'consultas/import_pdf.html', {
-            'resultados': resultados,
-            'creadas': creadas,
-            'fallidas': fallidas,
-        })

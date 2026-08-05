@@ -412,59 +412,6 @@ class AsignarCarteraTest(TestCase):
         self.assertEqual([c.razon_social for c in resp.context['clientes']], ['Uno'])
 
 
-class ClienteAjenoTest(TestCase):
-    """Un empleado no puede cargar consultas sobre la cartera de otro."""
-
-    @classmethod
-    def setUpTestData(cls):
-        cls.gerente = User.objects.create_user('g@test.com', 'x', first_name='G',
-                                               last_name='G', role=User.GERENTE)
-        cls.emp_a = User.objects.create_user('a@test.com', 'x', first_name='Ana',
-                                            last_name='Alfa', role=User.EMPLEADO)
-        cls.emp_b = User.objects.create_user('b@test.com', 'x', first_name='Beto',
-                                            last_name='Beta', role=User.EMPLEADO)
-
-    def crear_consulta(self, datos):
-        base = {'fecha': '2026-08-01', 'productos': 'Pallets',
-                'via_entrada': 'mail', 'estado': 'cotizado'}
-        return self.client.post(reverse('consultas:create'), {**base, **datos})
-
-    def test_no_puede_engancharse_a_un_cliente_de_otro_por_cuit(self):
-        from consultas.models import Consulta
-        Cliente.objects.create(razon_social='De Beto', cuit='30-60445647-5',
-                               vendedor=self.emp_b)
-        self.client.force_login(self.emp_a)
-        resp = self.crear_consulta({'razon_social': 'De Beto', 'cuit': '30604456475'})
-
-        self.assertEqual(resp.status_code, 200)   # se queda en el form
-        self.assertEqual(Consulta.objects.count(), 0)
-        self.assertContains(resp, 'ya está en la cartera de otro vendedor')
-
-    def test_un_cliente_nuevo_queda_en_la_cartera_de_quien_lo_trae(self):
-        from consultas.models import Consulta
-        self.client.force_login(self.emp_a)
-        self.crear_consulta({'razon_social': 'Nuevo SA', 'cuit': '30-70777384-3'})
-        cliente = Cliente.objects.get(razon_social='Nuevo SA')
-        self.assertEqual(cliente.vendedor, self.emp_a)
-        self.assertEqual(Consulta.objects.get().cliente, cliente)
-
-    def test_si_es_de_su_cartera_lo_usa_sin_problema(self):
-        from consultas.models import Consulta
-        mio = Cliente.objects.create(razon_social='Mío', cuit='30-60445647-5',
-                                     vendedor=self.emp_a)
-        self.client.force_login(self.emp_a)
-        self.crear_consulta({'razon_social': 'Mío', 'cuit': '30604456475'})
-        self.assertEqual(Consulta.objects.get().cliente_id, mio.pk)
-
-    def test_el_gerente_puede_usar_cualquier_cliente(self):
-        from consultas.models import Consulta
-        de_beto = Cliente.objects.create(razon_social='De Beto', cuit='30-60445647-5',
-                                         vendedor=self.emp_b)
-        self.client.force_login(self.gerente)
-        self.crear_consulta({'razon_social': 'De Beto', 'cuit': '30604456475'})
-        self.assertEqual(Consulta.objects.get().cliente_id, de_beto.pk)
-
-
 class ImportadorNoPisaAsignacionTest(BaseImportarTest):
     def test_reimportar_conserva_el_vendedor(self):
         """La lista del facturador no trae vendedor: no debe borrar la cartera."""

@@ -5,13 +5,28 @@
 {% block content %}
 <div class="max-w-3xl">
     <div class="flex items-center gap-3 mb-6">
-        <a href="{% url 'consultas:list' %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+        <a href="{% if consulta %}{% url 'consultas:detail' consulta.pk %}{% elif cliente %}{% url 'clientes:detail' cliente.pk %}{% else %}{% url 'consultas:list' %}{% endif %}"
+           class="text-gray-400 hover:text-gray-600">← Volver</a>
         <h1 class="text-2xl font-bold text-gray-900">{{ title }}</h1>
     </div>
 
-    <form method="post"{% if form_action %} action="{{ form_action }}"{% endif %} class="space-y-6">
+    {% if cliente %}
+    <div class="mb-6 bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-center justify-between">
+        <div>
+            <p class="text-xs text-gray-400 uppercase tracking-wider">Cliente</p>
+            <p class="font-semibold text-gray-900 mt-0.5">{{ cliente.razon_social }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">
+                {% if cliente.cuit %}{{ cliente.cuit }}{% endif %}
+                {% if cliente.ubicacion %}· {{ cliente.ubicacion }}{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'clientes:detail' cliente.pk %}"
+           class="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">Ver ficha →</a>
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-6">
         {% csrf_token %}
-        <input type="hidden" name="cliente_id" id="cliente_id_hidden">
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Consulta</h2>
@@ -23,31 +38,6 @@
             <div class="mt-4">{% include "consultas/_field.html" with field=form.productos %}</div>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {% include "consultas/_field.html" with field=form.cantidad %}
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Datos del cliente</h2>
-
-            <!-- Buscador de cliente existente -->
-            <div class="mb-5 relative">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Buscar cliente existente</label>
-                <input type="text" id="cliente_search"
-                       placeholder="Escribí nombre o CUIT para buscar..."
-                       autocomplete="off"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <div id="cliente_dropdown"
-                     class="hidden absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                </div>
-                <p id="cliente_seleccionado" class="hidden mt-2 text-xs text-green-600 font-medium"></p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {% include "consultas/_field.html" with field=form.razon_social %}
-                {% include "consultas/_field.html" with field=form.contacto %}
-                {% include "consultas/_field.html" with field=form.cuit %}
-                {% include "consultas/_field.html" with field=form.telefono %}
-                {% include "consultas/_field.html" with field=form.email %}
             </div>
         </div>
 
@@ -65,66 +55,11 @@
                 class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
                 Guardar
             </button>
-            <a href="{% if consulta %}{% url 'consultas:detail' consulta.pk %}{% else %}{% url 'consultas:list' %}{% endif %}"
+            <a href="{% if consulta %}{% url 'consultas:detail' consulta.pk %}{% elif cliente %}{% url 'clientes:detail' cliente.pk %}{% else %}{% url 'consultas:list' %}{% endif %}"
                 class="px-6 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
                 Cancelar
             </a>
         </div>
     </form>
 </div>
-
-<script>
-(function () {
-    const searchInput = document.getElementById('cliente_search');
-    const dropdown    = document.getElementById('cliente_dropdown');
-    const hiddenId    = document.getElementById('cliente_id_hidden');
-    const notice      = document.getElementById('cliente_seleccionado');
-    let timer;
-
-    searchInput.addEventListener('input', function () {
-        clearTimeout(timer);
-        const q = this.value.trim();
-        if (q.length < 2) { dropdown.classList.add('hidden'); return; }
-
-        timer = setTimeout(() => {
-            fetch('/clientes/buscar/?q=' + encodeURIComponent(q))
-                .then(r => r.json())
-                .then(data => {
-                    dropdown.innerHTML = '';
-                    if (!data.length) { dropdown.classList.add('hidden'); return; }
-
-                    data.forEach(c => {
-                        const div = document.createElement('div');
-                        div.className = 'px-4 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0';
-                        div.innerHTML =
-                            '<span class="font-medium text-sm text-gray-900">' + c.razon_social + '</span>' +
-                            (c.cuit ? '<span class="ml-2 text-xs text-gray-400 font-mono">' + c.cuit + '</span>' : '') +
-                            (c.contacto ? '<div class="text-xs text-gray-400">' + c.contacto + '</div>' : '');
-
-                        div.addEventListener('click', () => {
-                            hiddenId.value = c.id;
-                            document.getElementById('id_razon_social').value = c.razon_social;
-                            document.getElementById('id_contacto').value     = c.contacto  || '';
-                            document.getElementById('id_cuit').value         = c.cuit      || '';
-                            document.getElementById('id_telefono').value     = c.telefono  || '';
-                            document.getElementById('id_email').value        = c.email     || '';
-                            searchInput.value = c.razon_social;
-                            dropdown.classList.add('hidden');
-                            notice.textContent = '✓ Cliente vinculado: ' + c.razon_social;
-                            notice.classList.remove('hidden');
-                        });
-                        dropdown.appendChild(div);
-                    });
-                    dropdown.classList.remove('hidden');
-                });
-        }, 250);
-    });
-
-    document.addEventListener('click', function (e) {
-        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-})();
-</script>
 {% endblock %}
