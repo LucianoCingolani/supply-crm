@@ -34,9 +34,10 @@ class ConsultaAccesoMixin(LoginRequiredMixin):
 # un empleado no vea todos los clientes: así se engancha al registro existente en
 # lugar de crear un duplicado, y a partir de ahí pasa a verlo.
 def _get_or_create_cliente(cliente_id=None, razon_social='', cuit='', contacto='', telefono='', email=''):
-    from clientes.models import Cliente
+    from clientes.models import Cliente, normalizar_cuit
     razon_social = (razon_social or '').strip()
-    cuit = (cuit or '').strip()
+    # Se busca con el CUIT ya normalizado: es la forma en que quedan guardados.
+    cuit = normalizar_cuit(cuit)
 
     if cliente_id:
         cliente = Cliente.objects.filter(pk=cliente_id).first()

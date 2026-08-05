@@ -27,6 +27,12 @@
                     <dd class="font-mono font-medium mt-0.5">{{ cliente.cuit }}</dd>
                 </div>
                 {% endif %}
+                {% if cliente.dni %}
+                <div>
+                    <dt class="text-gray-400 text-xs">DNI</dt>
+                    <dd class="font-mono font-medium mt-0.5">{{ cliente.dni }}</dd>
+                </div>
+                {% endif %}
                 {% if cliente.contacto %}
                 <div>
                     <dt class="text-gray-400 text-xs">Contacto</dt>
@@ -58,6 +64,55 @@
                 </div>
             </dl>
         </div>
+
+        {% if cliente.domicilio or cliente.ubicacion %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Domicilio</h2>
+            <dl class="space-y-3 text-sm">
+                {% if cliente.domicilio %}
+                <div>
+                    <dt class="text-gray-400 text-xs">Dirección</dt>
+                    <dd class="font-medium mt-0.5">{{ cliente.domicilio }}</dd>
+                </div>
+                {% endif %}
+                {% if cliente.ubicacion %}
+                <div>
+                    <dt class="text-gray-400 text-xs">Localidad</dt>
+                    <dd class="font-medium mt-0.5">
+                        {{ cliente.ubicacion }}{% if cliente.codigo_postal %}
+                        <span class="text-gray-400 font-normal">(CP {{ cliente.codigo_postal }})</span>{% endif %}
+                    </dd>
+                </div>
+                {% endif %}
+            </dl>
+        </div>
+        {% endif %}
+
+        {% if cliente.condicion_fiscal or cliente.tipo_factura %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Datos fiscales</h2>
+            <dl class="space-y-3 text-sm">
+                {% if cliente.condicion_fiscal %}
+                <div>
+                    <dt class="text-gray-400 text-xs">Condición fiscal</dt>
+                    <dd class="font-medium mt-0.5">{{ cliente.condicion_fiscal }}</dd>
+                </div>
+                {% endif %}
+                {% if cliente.tipo_factura %}
+                <div>
+                    <dt class="text-gray-400 text-xs">Tipo de factura</dt>
+                    <dd class="font-medium mt-0.5">{{ cliente.tipo_factura }}</dd>
+                </div>
+                {% endif %}
+                {% if cliente.id_facturacion %}
+                <div>
+                    <dt class="text-gray-400 text-xs">ID en facturación</dt>
+                    <dd class="font-mono text-gray-500 mt-0.5">{{ cliente.id_facturacion }}</dd>
+                </div>
+                {% endif %}
+            </dl>
+        </div>
+        {% endif %}
 
         {% if cliente.notas %}
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">

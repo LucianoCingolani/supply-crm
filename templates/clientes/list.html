@@ -13,7 +13,7 @@
 <form method="get" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
     <div class="flex gap-3">
         <input type="text" name="q" value="{{ q }}"
-               placeholder="Buscar por nombre, CUIT o contacto..."
+               placeholder="Buscar por nombre, CUIT, DNI, localidad o provincia..."
                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button type="submit"
                 class="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700">Buscar</button>
@@ -31,6 +31,7 @@
                 <th class="px-4 py-3 text-left">Razón social</th>
                 <th class="px-4 py-3 text-left">CUIT</th>
                 <th class="px-4 py-3 text-left">Contacto</th>
+                <th class="px-4 py-3 text-left">Ubicación</th>
                 <th class="px-4 py-3 text-left">Teléfono</th>
                 <th class="px-4 py-3 text-center">Consultas</th>
                 <th class="px-4 py-3 text-left">Última consulta</th>
@@ -47,6 +48,7 @@
                 </td>
                 <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ cliente.cuit|default:"—" }}</td>
                 <td class="px-4 py-3 text-gray-600">{{ cliente.contacto|default:"—" }}</td>
+                <td class="px-4 py-3 text-gray-500 text-xs">{{ cliente.ubicacion|default:"—" }}</td>
                 <td class="px-4 py-3 text-gray-600">
                     {% if cliente.telefono %}
                     <a href="https://wa.me/54{{ cliente.telefono|cut:' '|cut:'-'|cut:'+' }}"
@@ -79,7 +81,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" class="px-4 py-10 text-center text-gray-400">
+                <td colspan="8" class="px-4 py-10 text-center text-gray-400">
                     No hay clientes que coincidan.
                 </td>
             </tr>
@@ -87,4 +89,31 @@
         </tbody>
     </table>
 </div>
+
+{% if pagina.paginator.num_pages > 1 %}
+<div class="mt-4 flex items-center justify-between text-sm">
+    <p class="text-gray-500">
+        {{ pagina.start_index }}–{{ pagina.end_index }} de {{ pagina.paginator.count }}
+    </p>
+    <div class="flex items-center gap-1">
+        {% if pagina.has_previous %}
+        <a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}pagina={{ pagina.previous_page_number }}"
+           class="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">Anterior</a>
+        {% else %}
+        <span class="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-300 rounded-lg">Anterior</span>
+        {% endif %}
+
+        <span class="px-3 py-1.5 text-gray-500">
+            Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}
+        </span>
+
+        {% if pagina.has_next %}
+        <a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}pagina={{ pagina.next_page_number }}"
+           class="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">Siguiente</a>
+        {% else %}
+        <span class="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-300 rounded-lg">Siguiente</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}
