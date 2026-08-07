@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from productos.models import Producto
+from productos.models import ARS, MONEDAS, Producto
 
 
 def _limpiar(valor):
@@ -17,6 +17,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('archivo', type=str, help='Ruta al archivo .xlsx exportado de Enexpro')
+        # El Excel no dice en qué moneda están los precios, así que lo declara
+        # quien importa: pisarla en silencio dejaría el catálogo mintiendo.
+        parser.add_argument(
+            '--moneda', choices=[valor for valor, _ in MONEDAS], default=ARS,
+            help='Moneda de los precios del archivo (por defecto ARS).',
+        )
 
     def handle(self, *args, **options):
         try:
@@ -58,6 +64,7 @@ class Command(BaseCommand):
                 categoria=_limpiar(cat_raw),
                 subcategoria=_limpiar(subcat_raw),
                 precio=precio,
+                moneda=options['moneda'],
                 updated_at=now,
             ))
 
@@ -66,7 +73,7 @@ class Command(BaseCommand):
         resultado = Producto.objects.bulk_create(
             objetos,
             update_conflicts=True,
-            update_fields=['nombre', 'categoria', 'subcategoria', 'precio', 'updated_at'],
+            update_fields=['nombre', 'categoria', 'subcategoria', 'precio', 'moneda', 'updated_at'],
             unique_fields=['codigo'],
         )
 

@@ -2,6 +2,23 @@ import base64
 
 from django.db import models
 
+# Monedas del sistema. Viven acá porque el precio nace en el catálogo, y de acá
+# las toma la cotización.
+ARS = 'ARS'
+USD = 'USD'
+
+MONEDAS = [
+    (ARS, 'Pesos'),
+    (USD, 'Dólares'),
+]
+
+SIMBOLOS = {ARS: '$', USD: 'u$s'}
+
+
+def simbolo(moneda):
+    return SIMBOLOS.get(moneda, '$')
+
+
 # El catálogo importado de Enexpro no trae unidad, así que el campo admite
 # vacío: solo las altas manuales la cargan.
 UNIDADES_MEDIDA = [
@@ -36,6 +53,10 @@ class Producto(models.Model):
         null=True, blank=True,
         verbose_name='Precio de venta',
     )
+    moneda = models.CharField(
+        max_length=3, choices=MONEDAS, default=ARS,
+        verbose_name='Moneda',
+    )
     especificaciones = models.TextField(
         blank=True,
         verbose_name='Especificaciones técnicas',
@@ -53,6 +74,10 @@ class Producto(models.Model):
 
     def __str__(self):
         return f"{self.codigo} — {self.nombre}"
+
+    @property
+    def simbolo_moneda(self):
+        return simbolo(self.moneda)
 
     @property
     def foto_data_uri(self):

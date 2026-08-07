@@ -1,8 +1,24 @@
+from dataclasses import dataclass
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Max, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+
+from productos.models import ARS, MONEDAS, USD, simbolo
+
+CENTAVOS = Decimal('0.01')
+IVA = Decimal('0.21')
+
+
+@dataclass(frozen=True)
+class Totales:
+    """Los tres números del pie de la cotización, en su moneda."""
+    neto: Decimal
+    iva: Decimal
+    con_iva: Decimal
 
 
 class ConsultaQuerySet(models.QuerySet):
@@ -83,6 +99,16 @@ class Consulta(models.Model):
     telefono = models.CharField(max_length=30, blank=True)
     email = models.EmailField(blank=True)
 
+    # Moneda de la cotización. Las líneas guardan el precio en la moneda en que
+    # se cargó; el total se expresa en esta, convirtiendo lo que haga falta.
+    moneda = models.CharField(max_length=3, choices=MONEDAS, default=ARS, verbose_name='Moneda')
+    tipo_cambio = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        null=True, blank=True,
+        verbose_name='Tipo de cambio',
+        help_text='Pesos por dólar. Solo hace falta si la cotización mezcla monedas.',
+    )
+
     # Estado y seguimiento
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default=COTIZADO)
     notas = models.TextField(blank=True)
@@ -133,6 +159,50 @@ class Consulta(models.Model):
             return self.fecha_seguimiento <= timezone.now().date()
         return False
 
+    # ── Moneda y totales ───────────────────────────────────────────
+
+    @property
+    def simbolo_moneda(self):
+        return simbolo(self.moneda)
+
+    @property
+    def mezcla_monedas(self):
+        """True si hay líneas cargadas en una moneda distinta a la de la cotización."""
+        return any(l.moneda != self.moneda for l in self.lineas.all())
+
+    @property
+    def falta_tipo_cambio(self):
+        """Hay que convertir pero no se sabe a cuánto. El total no se puede calcular."""
+        return self.mezcla_monedas and not self.tipo_cambio
+
+    def convertir(self, monto, desde):
+        """Pasa `monto` a la moneda de la cotización.
+
+        Devuelve None si la conversión hace falta y no hay tipo de cambio: es
+        preferible no mostrar número a mostrar uno inventado.
+        """
+        if monto is None:
+            return None
+        if desde == self.moneda:
+            return monto
+        if not self.tipo_cambio:
+            return None
+        if desde == USD:
+            return (monto * self.tipo_cambio).quantize(CENTAVOS)
+        return (monto / self.tipo_cambio).quantize(CENTAVOS)
+
+    def totales(self):
+        """Los totales en la moneda de la cotización, o None si falta el tipo de cambio."""
+        neto = Decimal('0')
+        for linea in self.lineas.all():
+            convertido = self.convertir(linea.subtotal, linea.moneda)
+            if convertido is None:
+                return None
+            neto += convertido
+        neto = neto.quantize(CENTAVOS)
+        iva = (neto * IVA).quantize(CENTAVOS)
+        return Totales(neto=neto, iva=iva, con_iva=neto + iva)
+
 
 class SeguimientoLog(models.Model):
     """Una nota de seguimiento.
@@ -171,6 +241,10 @@ class LineaCotizacion(models.Model):
     descripcion = models.CharField(max_length=300)
     cantidad = models.DecimalField(max_digits=10, decimal_places=2, default=1)
     precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
+    # La línea guarda la moneda en la que se cargó el precio, no la de la
+    # cotización: así cambiar el tipo de cambio recalcula todo sin perder el
+    # dato original de cuánto costaba el artículo.
+    moneda = models.CharField(max_length=3, choices=MONEDAS, default=ARS, verbose_name='Moneda')
     orden = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -178,7 +252,24 @@ class LineaCotizacion(models.Model):
 
     @property
     def subtotal(self):
+        """En la moneda de la línea."""
         return self.cantidad * self.precio_unitario
+
+    @property
+    def simbolo_moneda(self):
+        return simbolo(self.moneda)
+
+    @property
+    def es_de_otra_moneda(self):
+        return self.moneda != self.consulta.moneda
+
+    @property
+    def precio_convertido(self):
+        return self.consulta.convertir(self.precio_unitario, self.moneda)
+
+    @property
+    def subtotal_convertido(self):
+        return self.consulta.convertir(self.subtotal, self.moneda)
 
     def __str__(self):
         return f"{self.descripcion} x{self.cantidad}"

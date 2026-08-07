@@ -9,7 +9,7 @@ from django.views import View
 
 from accounts.mixins import CapacidadRequeridaMixin
 from .forms import ProductoForm
-from .models import UNIDADES_MEDIDA, Producto
+from .models import MONEDAS, UNIDADES_MEDIDA, Producto
 
 
 def categorias_existentes():
@@ -96,8 +96,11 @@ class ProductoEditView(CapacidadRequeridaMixin, View):
 
     def get(self, request, pk):
         producto = get_object_or_404(Producto, pk=pk)
-        return render(request, 'productos/edit.html',
-                      {'producto': producto, 'unidades': UNIDADES_MEDIDA})
+        return render(request, 'productos/edit.html', {
+            'producto': producto,
+            'unidades': UNIDADES_MEDIDA,
+            'monedas': MONEDAS,
+        })
 
     def post(self, request, pk):
         producto = get_object_or_404(Producto, pk=pk)
@@ -120,6 +123,10 @@ class ProductoEditView(CapacidadRequeridaMixin, View):
         unidad = request.POST.get('unidad_medida', '').strip()
         if unidad in dict(UNIDADES_MEDIDA) or unidad == '':
             producto.unidad_medida = unidad
+
+        moneda = request.POST.get('moneda', '').strip()
+        if moneda in dict(MONEDAS):
+            producto.moneda = moneda
 
         # Foto: solo reemplazar si se subió un archivo nuevo
         foto_file = request.FILES.get('foto')

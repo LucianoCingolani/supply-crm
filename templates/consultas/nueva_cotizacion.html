@@ -15,6 +15,24 @@
     <!-- Datos del encabezado -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Encabezado</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Se cotiza en</label>
+          <select name="moneda" id="moneda-cotizacion"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            {% for valor, etiqueta in monedas %}
+            <option value="{{ valor }}" {% if post.moneda == valor %}selected{% endif %}>{{ etiqueta }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de cambio</label>
+          <input type="text" name="tipo_cambio" id="tipo-cambio" value="{{ post.tipo_cambio|default:'' }}"
+            placeholder="Ej: 1350.00"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <p class="text-xs text-gray-400 mt-1">Pesos por dólar. Solo hace falta si mezclás productos en pesos y en dólares.</p>
+        </div>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Nº Cotización</label>
@@ -70,7 +88,7 @@
             {% for grupo in grupos %}
             <optgroup label="{{ grupo.grouper }}">
               {% for p in grupo.list %}
-              <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}">
+              <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}" data-moneda="{{ p.moneda }}">
                 {{ p.codigo }} — {{ p.nombre }}
               </option>
               {% endfor %}
@@ -90,7 +108,16 @@
           <input type="number" id="add-precio" min="0.01" step="0.01" placeholder="0.00"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="md:col-span-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Moneda</label>
+          <select id="add-moneda"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            {% for valor, etiqueta in monedas %}
+            <option value="{{ valor }}">{{ etiqueta }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="md:col-span-2">
           <label class="block text-xs font-medium text-gray-500 mb-1">Descripción <span class="text-gray-400">(editá si querés)</span></label>
           <input type="text" id="add-descripcion" placeholder="Ej: Pallet plástico P61 — 100x120cm, color blanco"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -121,6 +148,12 @@
         </table>
         <p id="sin-lineas" class="py-6 text-center text-sm text-gray-400">Todavía no hay productos. Usá el selector de arriba para agregar.</p>
       </div>
+
+      <p id="aviso-tc" style="display:none"
+         class="mt-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <strong>Falta el tipo de cambio.</strong>
+        Hay productos en otra moneda que la de la cotización: cargalo arriba para ver el total.
+      </p>
 
       <!-- Totales -->
       <div class="mt-4 flex justify-end">
@@ -157,6 +190,7 @@ let lineaIdx = 0;
 const selector    = document.getElementById('selector-producto');
 const addCant     = document.getElementById('add-cantidad');
 const addPrecio   = document.getElementById('add-precio');
+const addMoneda   = document.getElementById('add-moneda');
 const addDesc     = document.getElementById('add-descripcion');
 const btnAgregar  = document.getElementById('btn-agregar');
 const tbody       = document.getElementById('lineas-tbody');
@@ -165,6 +199,20 @@ const camposOcult = document.getElementById('campos-ocultos');
 const totNeto     = document.getElementById('tot-neto');
 const totIva      = document.getElementById('tot-iva');
 const totTotal    = document.getElementById('tot-total');
+const monedaCot   = document.getElementById('moneda-cotizacion');
+const tipoCambio  = document.getElementById('tipo-cambio');
+const avisoTc     = document.getElementById('aviso-tc');
+
+const SIMBOLOS = {ARS: '$', USD: 'u$s'};
+
+/* Misma regla que Consulta.convertir en el server: null cuando hace falta
+   convertir y no hay tipo de cambio, para no mostrar un total inventado. */
+function convertir(monto, desde) {
+  if (desde === monedaCot.value) return monto;
+  const tc = parseFloat((tipoCambio.value || '').replace(',', '.'));
+  if (!tc || tc <= 0) return null;
+  return desde === 'USD' ? monto * tc : monto / tc;
+}
 
 const fotoPreview = document.getElementById('foto-preview');
 
@@ -174,6 +222,7 @@ selector.addEventListener('change', function() {
     addDesc.value = opt.dataset.nombre;
     const precio = parseFloat(opt.dataset.precio);
     if (precio > 0) addPrecio.value = precio.toFixed(2);
+    if (opt.dataset.moneda) addMoneda.value = opt.dataset.moneda;
     // foto preview
     const fotoUrl = "{% url 'consultas:producto_foto' 0 %}".replace('0', opt.value);
     fotoPreview.src = fotoUrl;
@@ -188,6 +237,7 @@ btnAgregar.addEventListener('click', function() {
   const desc   = addDesc.value.trim();
   const cant   = parseFloat(addCant.value);
   const precio = parseFloat(addPrecio.value);
+  const moneda = addMoneda.value;
   const prodId = selector.value;
 
   if (!desc)        { addDesc.focus();   return; }
@@ -195,33 +245,44 @@ btnAgregar.addEventListener('click', function() {
   if (!precio || precio <= 0) { addPrecio.focus(); return; }
 
   const idx = lineaIdx++;
-  lineas.push({ idx, desc, cant, precio, prodId });
+  lineas.push({ idx, desc, cant, precio, moneda, prodId });
   renderTabla();
   // reset
   selector.value   = '';
   addDesc.value    = '';
   addCant.value    = '1';
   addPrecio.value  = '';
+  addMoneda.value  = monedaCot.value;
   addDesc.focus();
 });
+
+monedaCot.addEventListener('change', renderTabla);
+tipoCambio.addEventListener('input', renderTabla);
 
 function renderTabla() {
   tbody.innerHTML = '';
   camposOcult.innerHTML = '';
+  const simboloCot = SIMBOLOS[monedaCot.value] || '$';
   let neto = 0;
+  let faltaTc = false;
 
   lineas.forEach((l, i) => {
     const sub = l.cant * l.precio;
-    neto += sub;
+    const subConvertido = convertir(sub, l.moneda);
+    if (subConvertido === null) faltaTc = true;
+    else neto += subConvertido;
+
+    const simbolo = SIMBOLOS[l.moneda] || '$';
+    const otra = l.moneda !== monedaCot.value;
 
     // fila visible
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-gray-50';
     tr.innerHTML = `
-      <td class="px-3 py-2 text-gray-900">${escHtml(l.desc)}</td>
+      <td class="px-3 py-2 text-gray-900">${escHtml(l.desc)}${otra ? ` <span class="ml-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">${l.moneda}</span>` : ''}</td>
       <td class="px-3 py-2 text-right text-gray-600">${l.cant}</td>
-      <td class="px-3 py-2 text-right text-gray-600">${l.precio.toFixed(2)}</td>
-      <td class="px-3 py-2 text-right font-medium text-gray-900">${sub.toFixed(2)}</td>
+      <td class="px-3 py-2 text-right text-gray-600">${simbolo} ${l.precio.toFixed(2)}</td>
+      <td class="px-3 py-2 text-right font-medium text-gray-900">${subConvertido === null ? '<span class="text-amber-600 text-xs">—</span>' : simboloCot + ' ' + subConvertido.toFixed(2)}</td>
       <td class="px-3 py-2 text-center">
         <button type="button" class="text-red-400 hover:text-red-600 text-xs" data-idx="${l.idx}">✕</button>
       </td>`;
@@ -238,17 +299,19 @@ function renderTabla() {
     make(`linea_desc_${i}`,   l.desc);
     make(`linea_cant_${i}`,   l.cant);
     make(`linea_precio_${i}`, l.precio);
+    make(`linea_moneda_${i}`, l.moneda);
     make(`linea_prod_${i}`,   l.prodId || '');
   });
 
   sinLineas.style.display = lineas.length ? 'none' : 'block';
+  avisoTc.style.display = faltaTc ? 'block' : 'none';
 
-  if (lineas.length) {
+  if (lineas.length && !faltaTc) {
     const iva   = neto * 0.21;
     const total = neto * 1.21;
-    totNeto.textContent  = neto.toFixed(2);
-    totIva.textContent   = iva.toFixed(2);
-    totTotal.textContent = total.toFixed(2);
+    totNeto.textContent  = simboloCot + ' ' + neto.toFixed(2);
+    totIva.textContent   = simboloCot + ' ' + iva.toFixed(2);
+    totTotal.textContent = simboloCot + ' ' + total.toFixed(2);
   } else {
     totNeto.textContent = totIva.textContent = totTotal.textContent = '—';
   }

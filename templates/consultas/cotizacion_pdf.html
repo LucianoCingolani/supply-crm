@@ -279,8 +279,8 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
         {% if linea.producto.codigo %}<small>Cód. {{ linea.producto.codigo }}</small>{% endif %}
       </td>
       <td class="r">{{ linea.cantidad }}</td>
-      <td class="r">u$s {{ linea.precio_unitario|precio_ar }} + IVA</td>
-      <td class="r"><strong>u$s {{ linea.subtotal|precio_ar }}</strong></td>
+      <td class="r">{{ consulta.simbolo_moneda }} {{ linea.precio_convertido|precio_ar }} + IVA</td>
+      <td class="r"><strong>{{ consulta.simbolo_moneda }} {{ linea.subtotal_convertido|precio_ar }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
@@ -288,11 +288,18 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 
 <div class="totals-wrap">
   <table class="totals-inner">
-    <tr><td class="lbl">Subtotal neto</td><td class="val">u$s {{ total_neto|precio_ar }}</td></tr>
-    <tr><td class="lbl">IVA (21%)</td><td class="val">u$s {{ iva|precio_ar }}</td></tr>
-    <tr class="grand"><td>Total c/ IVA</td><td style="text-align:right">u$s {{ total_con_iva|precio_ar }}</td></tr>
+    <tr><td class="lbl">Subtotal neto</td><td class="val">{{ consulta.simbolo_moneda }} {{ totales.neto|precio_ar }}</td></tr>
+    <tr><td class="lbl">IVA (21%)</td><td class="val">{{ consulta.simbolo_moneda }} {{ totales.iva|precio_ar }}</td></tr>
+    <tr class="grand"><td>Total c/ IVA</td><td style="text-align:right">{{ consulta.simbolo_moneda }} {{ totales.con_iva|precio_ar }}</td></tr>
   </table>
 </div>
+
+{% if consulta.mezcla_monedas %}
+<p style="margin-top:6px; text-align:right; font-size:8pt; color:#555;">
+  Valores expresados en {{ consulta.get_moneda_display|lower }}, convertidos a un tipo de cambio de
+  $ {{ consulta.tipo_cambio|precio_ar }} por dólar.
+</p>
+{% endif %}
 
 <!-- ═══════════════════════════════════════════════
      UNA PÁGINA POR PRODUCTO

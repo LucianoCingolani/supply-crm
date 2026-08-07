@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from productos.models import Producto
+from productos.models import ARS, USD, Producto
 
 User = get_user_model()
 
@@ -31,6 +31,7 @@ def datos(**overrides):
         'nombre': 'Guante de nitrilo azul talle L',
         'unidad_medida': 'PAR',
         'precio': '1500.50',
+        'moneda': ARS,
         'categoria': 'Protección de manos',
     }
     return {**base, **overrides}
@@ -140,6 +141,15 @@ class AltaArticuloTest(TestCase):
         self.assertFalse(Producto.objects.exists())
         self.assertEqual(respuesta.status_code, 200)
 
+    def test_guarda_la_moneda_elegida(self):
+        self.client.post(self.url, datos(moneda=USD))
+        self.assertEqual(Producto.objects.get(codigo='SA-001').moneda, USD)
+
+    def test_rechaza_una_moneda_inventada(self):
+        respuesta = self.client.post(self.url, datos(moneda='BTC'))
+        self.assertFalse(Producto.objects.exists())
+        self.assertEqual(respuesta.status_code, 200)
+
     def test_sugiere_las_categorias_que_ya_existen(self):
         Producto.objects.create(codigo='SA-999', nombre='Otro', categoria='Calzado de seguridad')
         respuesta = self.client.get(self.url)
@@ -168,3 +178,13 @@ class EditarUnidadMedidaTest(TestCase):
         self.client.post(self.url, {'nombre': 'Guante', 'precio': '', 'unidad_medida': 'BANANAS'})
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.unidad_medida, 'PAR')
+
+    def test_cambia_la_moneda(self):
+        self.client.post(self.url, {'nombre': 'Guante', 'precio': '250', 'moneda': USD})
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.moneda, USD)
+
+    def test_ignora_una_moneda_inventada(self):
+        self.client.post(self.url, {'nombre': 'Guante', 'precio': '250', 'moneda': 'BTC'})
+        self.producto.refresh_from_db()
+        self.assertEqual(self.producto.moneda, ARS)

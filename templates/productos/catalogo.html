@@ -91,7 +91,7 @@
           <p class="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{{ p.nombre }}</p>
           {% if p.precio %}
           <p class="text-sm font-bold text-gray-800 mt-2">
-            ${{ p.precio|floatformat:2 }}
+            {{ p.simbolo_moneda }} {{ p.precio|floatformat:2 }}
             <span class="text-xs font-normal text-gray-400">+ IVA</span>
           </p>
           {% endif %}

@@ -12,12 +12,27 @@
         </div>
     </div>
     {% if consulta.lineas.all %}
+    {% if consulta.falta_tipo_cambio %}
+    <span class="px-4 py-2 bg-gray-200 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed"
+          title="Falta el tipo de cambio">
+        Descargar PDF
+    </span>
+    {% else %}
     <a href="{% url 'consultas:cotizacion_pdf' consulta.pk %}"
        class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
         Descargar PDF
     </a>
     {% endif %}
+    {% endif %}
 </div>
+
+{% if consulta.falta_tipo_cambio %}
+<div class="mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+    <strong>Falta el tipo de cambio.</strong>
+    Esta cotización es en {{ consulta.get_moneda_display|lower }} pero tiene líneas en otra moneda.
+    Hasta que lo cargues no se puede calcular el total ni generar el PDF.
+</div>
+{% endif %}
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
@@ -41,10 +56,30 @@
                 <tbody class="divide-y divide-gray-50">
                     {% for linea in consulta.lineas.all %}
                     <tr>
-                        <td class="px-4 py-3 text-gray-900">{{ linea.descripcion }}</td>
+                        <td class="px-4 py-3 text-gray-900">
+                            {{ linea.descripcion }}
+                            {% if linea.es_de_otra_moneda %}
+                            <span class="ml-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                                {{ linea.moneda }}
+                            </span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-right text-gray-600">{{ linea.cantidad }}</td>
-                        <td class="px-4 py-3 text-right text-gray-600">{{ linea.precio_unitario }}</td>
-                        <td class="px-4 py-3 text-right font-medium text-gray-900">{{ linea.subtotal }}</td>
+                        <td class="px-4 py-3 text-right text-gray-600">
+                            {{ linea.simbolo_moneda }} {{ linea.precio_unitario }}
+                            {% if linea.es_de_otra_moneda %}
+                            <span class="block text-xs text-gray-400">
+                                {% if linea.precio_convertido %}= {{ consulta.simbolo_moneda }} {{ linea.precio_convertido }}{% else %}sin convertir{% endif %}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right font-medium text-gray-900">
+                            {% if linea.subtotal_convertido %}
+                            {{ consulta.simbolo_moneda }} {{ linea.subtotal_convertido }}
+                            {% else %}
+                            <span class="text-amber-600 text-xs">—</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-right">
                             <form method="post">
                                 {% csrf_token %}
@@ -79,7 +114,7 @@
                         {% for grupo in grupos %}
                         <optgroup label="{{ grupo.grouper }}">
                             {% for p in grupo.list %}
-                            <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}">
+                            <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}" data-moneda="{{ p.moneda }}">
                                 {{ p.codigo }} — {{ p.nombre }}
                             </option>
                             {% endfor %}
@@ -95,7 +130,7 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
                         <input type="number" name="cantidad" id="cantidad" value="1" min="0.01" step="0.01" required
@@ -106,6 +141,15 @@
                         <input type="number" name="precio_unitario" id="precio_unitario" min="0.01" step="0.01" required
                             placeholder="0.00"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+                        <select name="moneda" id="moneda-linea"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {% for valor, etiqueta in monedas %}
+                            <option value="{{ valor }}" {% if consulta.moneda == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
 
@@ -123,21 +167,58 @@
     <!-- Totales -->
     <div class="space-y-4">
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Totales</h2>
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                Totales <span class="text-gray-400 normal-case font-normal">en {{ consulta.get_moneda_display|lower }}</span>
+            </h2>
+            {% if totales %}
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <span class="text-gray-500">Subtotal neto</span>
-                    <span class="font-medium">{{ total_neto }}</span>
+                    <span class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.neto }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">IVA 21%</span>
-                    <span class="font-medium">{{ iva }}</span>
+                    <span class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.iva }}</span>
                 </div>
                 <div class="flex justify-between border-t border-gray-100 pt-2 mt-2">
                     <span class="font-semibold text-gray-900">Total c/ IVA</span>
-                    <span class="font-bold text-gray-900 text-base">{{ total_con_iva }}</span>
+                    <span class="font-bold text-gray-900 text-base">{{ consulta.simbolo_moneda }} {{ totales.con_iva }}</span>
                 </div>
             </div>
+            {% else %}
+            <p class="text-sm text-amber-700">
+                No se puede calcular: hay líneas en otra moneda y falta el tipo de cambio.
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Moneda de la cotización -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Moneda</h2>
+            <form method="post" class="space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="moneda">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Se cotiza en</label>
+                    <select name="moneda"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        {% for valor, etiqueta in monedas %}
+                        <option value="{{ valor }}" {% if consulta.moneda == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de cambio</label>
+                    <input type="text" name="tipo_cambio" value="{{ consulta.tipo_cambio|default:'' }}"
+                        placeholder="Ej: 1350.00"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-400 mt-1">Pesos por dólar. Solo hace falta si hay líneas en las dos monedas.</p>
+                </div>
+                <button type="submit"
+                    class="w-full px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700">
+                    Guardar moneda
+                </button>
+            </form>
         </div>
 
         <div class="bg-gray-50 rounded-xl border border-gray-100 p-4 text-xs text-gray-500 space-y-1">
@@ -154,7 +235,9 @@ const descripcionInput = document.getElementById('descripcion');
 const precioInput = document.getElementById('precio_unitario');
 const cantidadInput = document.getElementById('cantidad');
 const productoIdInput = document.getElementById('producto_id');
+const monedaInput = document.getElementById('moneda-linea');
 const previewSubtotal = document.getElementById('preview-subtotal');
+const SIMBOLOS = {ARS: '$', USD: 'u$s'};
 
 selector.addEventListener('change', function() {
     const opt = this.options[this.selectedIndex];
@@ -163,6 +246,9 @@ selector.addEventListener('change', function() {
         descripcionInput.value = opt.dataset.nombre;
         const precio = parseFloat(opt.dataset.precio);
         if (precio > 0) precioInput.value = precio.toFixed(2);
+        // El precio se trae junto con su moneda: si el artículo está en
+        // dólares, la línea tiene que quedar en dólares y no leerse como pesos.
+        if (opt.dataset.moneda) monedaInput.value = opt.dataset.moneda;
     } else {
         productoIdInput.value = '';
     }
@@ -173,10 +259,12 @@ function updatePreview() {
     const cant = parseFloat(cantidadInput.value) || 0;
     const precio = parseFloat(precioInput.value) || 0;
     const sub = cant * precio;
-    previewSubtotal.textContent = sub > 0 ? sub.toFixed(2) : '—';
+    const simbolo = SIMBOLOS[monedaInput.value] || '$';
+    previewSubtotal.textContent = sub > 0 ? simbolo + ' ' + sub.toFixed(2) : '—';
 }
 
 cantidadInput.addEventListener('input', updatePreview);
 precioInput.addEventListener('input', updatePreview);
+monedaInput.addEventListener('change', updatePreview);
 </script>
 {% endblock %}

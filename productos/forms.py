@@ -43,11 +43,12 @@ class ProductoForm(forms.ModelForm):
 
     class Meta:
         model = Producto
-        fields = ['codigo', 'nombre', 'unidad_medida', 'precio', 'categoria']
+        fields = ['codigo', 'nombre', 'unidad_medida', 'precio', 'moneda', 'categoria']
         widgets = {
             'codigo': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: SA-01234'}),
             'nombre': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: Guante de nitrilo azul talle L'}),
             'unidad_medida': forms.Select(attrs={'class': SELECT_CLASS}),
+            'moneda': forms.Select(attrs={'class': SELECT_CLASS}),
             'categoria': forms.TextInput(attrs={
                 'class': INPUT_CLASS,
                 'placeholder': 'Ej: Protección de manos',
@@ -60,6 +61,7 @@ class ProductoForm(forms.ModelForm):
         }
         help_texts = {
             'codigo': 'Identifica al artículo, no se puede repetir ni cambiar después.',
+            'moneda': 'En qué moneda está el precio de arriba. La cotización convierte si hace falta.',
             # El catálogo se navega por categoría: sin ella el artículo existe
             # pero solo aparece buscándolo por nombre o código.
             'categoria': 'Define en qué sección del catálogo aparece. Elegí una de la lista o escribí una nueva.',

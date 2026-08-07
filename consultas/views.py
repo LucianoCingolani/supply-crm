@@ -10,9 +10,39 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.views import View
 
-from productos.models import Producto
+from productos.models import ARS, MONEDAS, Producto
 from .forms import ConsultaClienteForm, FiltroConsultaForm, SeguimientoForm
 from .models import Consulta, LineaCotizacion
+
+MONEDAS_VALIDAS = dict(MONEDAS)
+
+
+def moneda_valida(valor, por_defecto=ARS):
+    return valor if valor in MONEDAS_VALIDAS else por_defecto
+
+
+def leer_tipo_cambio(request):
+    """(valor, ok). El vacío es válido: significa 'todavía no lo sé'."""
+    crudo = request.POST.get('tipo_cambio', '').strip().replace(',', '.')
+    if not crudo:
+        return None, True
+    try:
+        valor = Decimal(crudo)
+    except InvalidOperation:
+        return None, False
+    return (valor, True) if valor > 0 else (None, False)
+
+
+def productos_para_selector(productos):
+    return json.dumps([
+        {
+            'id': p.pk,
+            'nombre': p.nombre,
+            'precio': float(p.precio) if p.precio else 0,
+            'moneda': p.moneda,
+        }
+        for p in productos
+    ])
 
 
 class ConsultaAccesoMixin(LoginRequiredMixin):
@@ -119,18 +149,12 @@ class CotizacionView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'lineas__producto')
         productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
-        productos_json = json.dumps([
-            {'id': p.pk, 'nombre': p.nombre, 'precio': float(p.precio) if p.precio else 0}
-            for p in productos
-        ])
-        total_neto = sum(l.subtotal for l in consulta.lineas.all())
         return render(request, 'consultas/cotizacion.html', {
             'consulta': consulta,
             'productos': productos,
-            'productos_json': productos_json,
-            'total_neto': total_neto,
-            'iva': total_neto * Decimal('0.21'),
-            'total_con_iva': total_neto * Decimal('1.21'),
+            'productos_json': productos_para_selector(productos),
+            'monedas': MONEDAS,
+            'totales': consulta.totales(),
         })
 
     def post(self, request, pk):
@@ -148,8 +172,11 @@ class CotizacionView(ConsultaAccesoMixin, View):
             if not descripcion or precio <= 0:
                 messages.error(request, 'Completá descripción y precio.')
                 return redirect('consultas:cotizacion', pk=pk)
-            linea = LineaCotizacion(consulta=consulta, descripcion=descripcion,
-                                    cantidad=cantidad, precio_unitario=precio)
+            linea = LineaCotizacion(
+                consulta=consulta, descripcion=descripcion,
+                cantidad=cantidad, precio_unitario=precio,
+                moneda=moneda_valida(request.POST.get('moneda'), consulta.moneda),
+            )
             prod_id = request.POST.get('producto_id')
             if prod_id:
                 linea.producto = Producto.objects.filter(pk=prod_id).first()
@@ -158,6 +185,15 @@ class CotizacionView(ConsultaAccesoMixin, View):
         elif action == 'delete':
             LineaCotizacion.objects.filter(consulta=consulta, pk=request.POST.get('linea_id')).delete()
 
+        elif action == 'moneda':
+            tipo_cambio, ok = leer_tipo_cambio(request)
+            if not ok:
+                messages.error(request, 'Tipo de cambio inválido.')
+                return redirect('consultas:cotizacion', pk=pk)
+            consulta.moneda = moneda_valida(request.POST.get('moneda'), consulta.moneda)
+            consulta.tipo_cambio = tipo_cambio
+            consulta.save(update_fields=['moneda', 'tipo_cambio', 'updated_at'])
+
         return redirect('consultas:cotizacion', pk=pk)
 
 
@@ -165,12 +201,20 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'lineas__producto')
 
-        total_neto = sum(l.subtotal for l in consulta.lineas.all())
+        totales = consulta.totales()
+        # Sin tipo de cambio no hay total posible, y un PDF con un número mal
+        # sumado es peor que no tener PDF: se lo manda al cliente.
+        if totales is None:
+            messages.error(
+                request,
+                'La cotización mezcla pesos y dólares. Cargá el tipo de cambio '
+                'para poder generar el PDF.',
+            )
+            return redirect('consultas:cotizacion', pk=pk)
+
         html = render_to_string('consultas/cotizacion_pdf.html', {
             'consulta': consulta,
-            'total_neto': total_neto,
-            'iva': total_neto * Decimal('0.21'),
-            'total_con_iva': total_neto * Decimal('1.21'),
+            'totales': totales,
             'request': request,
         })
         import weasyprint
@@ -237,11 +281,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
 
     def _productos_ctx(self):
         productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
-        productos_json = json.dumps([
-            {'id': p.pk, 'nombre': p.nombre, 'precio': float(p.precio) if p.precio else 0}
-            for p in productos
-        ])
-        return productos, productos_json
+        return productos, productos_para_selector(productos)
 
     def _render(self, request, cliente, fecha_str=None, post=None):
         import datetime
@@ -251,6 +291,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
             'productos': productos,
             'productos_json': productos_json,
             'hoy': fecha_str or datetime.date.today().isoformat(),
+            'monedas': MONEDAS,
             'post': post,
         })
 
@@ -269,9 +310,22 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
         except (ValueError, TypeError):
             fecha = datetime.date.today()
 
-        lineas = self._leer_lineas(request)
+        moneda = moneda_valida(request.POST.get('moneda'))
+        tipo_cambio, tc_ok = leer_tipo_cambio(request)
+        if not tc_ok:
+            messages.error(request, 'Tipo de cambio inválido.')
+            return self._render(request, cliente, fecha_str, request.POST)
+
+        lineas = self._leer_lineas(request, moneda)
         if not lineas:
             messages.error(request, 'Agregá al menos un producto a la cotización.')
+            return self._render(request, cliente, fecha_str, request.POST)
+
+        if any(l['moneda'] != moneda for l in lineas) and not tipo_cambio:
+            messages.error(
+                request,
+                'Hay productos en otra moneda que la de la cotización: cargá el tipo de cambio.',
+            )
             return self._render(request, cliente, fecha_str, request.POST)
 
         consulta = copiar_datos_del_cliente(
@@ -282,6 +336,8 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
                 numero_cotizacion=nro_cot,
                 via_entrada=via,
                 estado=Consulta.COTIZADO,
+                moneda=moneda,
+                tipo_cambio=tipo_cambio,
                 vendedor=request.user,
             ),
             cliente,
@@ -294,6 +350,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
                 descripcion=l['descripcion'],
                 cantidad=l['cantidad'],
                 precio_unitario=l['precio_unitario'],
+                moneda=l['moneda'],
                 orden=orden,
                 producto=Producto.objects.filter(pk=l['producto_id']).first()
                 if l['producto_id'] else None,
@@ -301,7 +358,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
 
         return redirect('consultas:cotizacion', pk=consulta.pk)
 
-    def _leer_lineas(self, request):
+    def _leer_lineas(self, request, moneda_cotizacion):
         """Las líneas llegan como campos indexados: linea_desc_0, linea_cant_0, ..."""
         lineas, i = [], 0
         while True:
@@ -320,6 +377,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
                     'descripcion': desc,
                     'cantidad': cant_d,
                     'precio_unitario': precio_d,
+                    'moneda': moneda_valida(request.POST.get(f'linea_moneda_{i}'), moneda_cotizacion),
                     'producto_id': request.POST.get(f'linea_prod_{i}', ''),
                 })
             i += 1
