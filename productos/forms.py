@@ -24,7 +24,11 @@ class PrecioField(forms.DecimalField):
 
 
 class ProductoForm(forms.ModelForm):
-    """Alta manual de un artículo del catálogo."""
+    """Alta y edición de un artículo del catálogo.
+
+    `edicion=True` bloquea el código, que es la clave con la que el importador
+    reconoce al artículo: cambiarlo crearía un duplicado en la próxima corrida.
+    """
 
     precio = PrecioField(
         max_digits=14, decimal_places=2, min_value=0, required=False,
@@ -40,10 +44,18 @@ class ProductoForm(forms.ModelForm):
             'class': FILE_CLASS, 'accept': 'image/*', 'id': 'foto-input',
         }),
     )
+    borrar_foto = forms.BooleanField(
+        required=False,
+        label='Borrar la imagen actual',
+        widget=forms.CheckboxInput(attrs={
+            'class': 'w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400',
+        }),
+    )
 
     class Meta:
         model = Producto
-        fields = ['codigo', 'nombre', 'unidad_medida', 'precio', 'moneda', 'categoria']
+        fields = ['codigo', 'nombre', 'unidad_medida', 'precio', 'moneda',
+                  'categoria', 'especificaciones']
         widgets = {
             'codigo': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: SA-01234'}),
             'nombre': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: Guante de nitrilo azul talle L'}),
@@ -53,6 +65,10 @@ class ProductoForm(forms.ModelForm):
                 'class': INPUT_CLASS,
                 'placeholder': 'Ej: Protección de manos',
                 'list': 'categorias-existentes',
+            }),
+            'especificaciones': forms.Textarea(attrs={
+                'class': INPUT_CLASS + ' font-mono', 'rows': 5,
+                'placeholder': 'Una característica por línea',
             }),
         }
         labels = {
@@ -65,14 +81,26 @@ class ProductoForm(forms.ModelForm):
             # El catálogo se navega por categoría: sin ella el artículo existe
             # pero solo aparece buscándolo por nombre o código.
             'categoria': 'Define en qué sección del catálogo aparece. Elegí una de la lista o escribí una nueva.',
+            'especificaciones': 'Una por línea. Salen como bullets en la ficha.',
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, edicion=False, **kwargs):
         super().__init__(*args, **kwargs)
-        # En un alta manual siempre se sabe cómo se vende el artículo; el vacío
-        # del modelo es solo para lo que vino importado.
-        self.fields['unidad_medida'].required = True
-        self.fields['unidad_medida'].initial = 'UN'
+        self.edicion = edicion
+        if edicion:
+            # disabled ignora lo que venga en el POST y conserva el valor guardado.
+            self.fields['codigo'].disabled = True
+            self.fields['codigo'].help_text = 'No se puede modificar: es la clave del artículo.'
+            self.fields['codigo'].widget.attrs['class'] = (
+                INPUT_CLASS + ' bg-gray-50 text-gray-400 cursor-not-allowed'
+            )
+        else:
+            # En un alta siempre se sabe cómo se vende; editando puede tocar
+            # arreglar solo el precio de una fila importada que no trae unidad,
+            # y exigirla ahí sería un obstáculo sin motivo.
+            self.fields['unidad_medida'].required = True
+            self.fields['unidad_medida'].initial = 'UN'
+            del self.fields['borrar_foto']
 
     def clean_imagen(self):
         imagen = self.cleaned_data.get('imagen')
@@ -90,6 +118,9 @@ class ProductoForm(forms.ModelForm):
         if imagen:
             producto.foto = imagen.read()
             producto.foto_tipo = imagen.content_type or 'image/jpeg'
+        elif self.cleaned_data.get('borrar_foto'):
+            producto.foto = None
+            producto.foto_tipo = ''
         if commit:
             producto.save()
         return producto

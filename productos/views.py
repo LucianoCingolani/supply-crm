@@ -1,5 +1,3 @@
-from decimal import Decimal, InvalidOperation
-
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q
@@ -9,7 +7,7 @@ from django.views import View
 
 from accounts.mixins import CapacidadRequeridaMixin
 from .forms import ProductoForm
-from .models import MONEDAS, UNIDADES_MEDIDA, Producto
+from .models import Producto
 
 
 def categorias_existentes():
@@ -63,9 +61,40 @@ class CatalogoView(LoginRequiredMixin, View):
 
 
 class ProductoDetailView(LoginRequiredMixin, View):
+    """La ficha del artículo. Para quien puede editar el catálogo, es además el
+    formulario: corregir un precio o una categoría no debería costar dos
+    pantallas, y con 740 artículos importados sin clasificar, menos todavía.
+    """
+
     def get(self, request, pk):
-        producto = get_object_or_404(Producto, pk=pk, activo=True)
-        return render(request, 'productos/detail.html', {'producto': producto})
+        return self.render_ficha(request, self.get_producto(pk))
+
+    def post(self, request, pk):
+        producto = self.get_producto(pk)
+        if not request.user.puede_editar_catalogo:
+            messages.error(request, 'No tenés permisos para editar el catálogo.')
+            return redirect('productos:detail', pk=pk)
+
+        form = ProductoForm(request.POST, request.FILES, instance=producto, edicion=True)
+        if not form.is_valid():
+            return self.render_ficha(request, producto, form)
+        form.save()
+        messages.success(request, 'Artículo actualizado.')
+        return redirect('productos:detail', pk=pk)
+
+    def get_producto(self, pk):
+        return get_object_or_404(Producto, pk=pk, activo=True)
+
+    def render_ficha(self, request, producto, form=None):
+        puede_editar = request.user.puede_editar_catalogo
+        if puede_editar and form is None:
+            form = ProductoForm(instance=producto, edicion=True)
+        return render(request, 'productos/detail.html', {
+            'producto': producto,
+            'puede_editar': puede_editar,
+            'form': form if puede_editar else None,
+            'categorias': categorias_existentes() if puede_editar else None,
+        })
 
 
 class ProductoCreateView(CapacidadRequeridaMixin, View):
@@ -91,54 +120,3 @@ class ProductoCreateView(CapacidadRequeridaMixin, View):
         })
 
 
-class ProductoEditView(CapacidadRequeridaMixin, View):
-    capacidad = 'puede_editar_catalogo'
-
-    def get(self, request, pk):
-        producto = get_object_or_404(Producto, pk=pk)
-        return render(request, 'productos/edit.html', {
-            'producto': producto,
-            'unidades': UNIDADES_MEDIDA,
-            'monedas': MONEDAS,
-        })
-
-    def post(self, request, pk):
-        producto = get_object_or_404(Producto, pk=pk)
-
-        # Precio
-        precio_raw = request.POST.get('precio', '').strip()
-        try:
-            producto.precio = Decimal(precio_raw.replace(',', '.')) if precio_raw else None
-        except InvalidOperation:
-            messages.error(request, 'Precio inválido.')
-            return render(request, 'productos/edit.html',
-                          {'producto': producto, 'unidades': UNIDADES_MEDIDA})
-
-        # Nombre y especificaciones
-        nombre = request.POST.get('nombre', '').strip()
-        if nombre:
-            producto.nombre = nombre
-        producto.especificaciones = request.POST.get('especificaciones', '').strip()
-
-        unidad = request.POST.get('unidad_medida', '').strip()
-        if unidad in dict(UNIDADES_MEDIDA) or unidad == '':
-            producto.unidad_medida = unidad
-
-        moneda = request.POST.get('moneda', '').strip()
-        if moneda in dict(MONEDAS):
-            producto.moneda = moneda
-
-        # Foto: solo reemplazar si se subió un archivo nuevo
-        foto_file = request.FILES.get('foto')
-        if foto_file:
-            producto.foto = foto_file.read()
-            producto.foto_tipo = foto_file.content_type or 'image/jpeg'
-
-        # Opción para borrar la foto actual
-        elif request.POST.get('borrar_foto'):
-            producto.foto = None
-            producto.foto_tipo = ''
-
-        producto.save()
-        messages.success(request, f'Producto "{producto.nombre}" actualizado.')
-        return redirect('productos:detail', pk=pk)

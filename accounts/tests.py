@@ -256,23 +256,33 @@ class GestionUsuariosTest(BaseRolesTest):
 
 
 class CatalogoTest(BaseRolesTest):
-    def test_solo_admin_y_gerente_editan_productos(self):
-        url = reverse('productos:edit', args=[self.producto.pk])
+    """La ficha del artículo es la misma para todos; el formulario, no."""
+
+    def ficha(self):
+        return reverse('productos:detail', args=[self.producto.pk])
+
+    def test_solo_admin_y_gerente_ven_el_formulario(self):
         for user in (self.admin, self.gerente):
             with self.subTest(rol=user.role):
                 self.login(user)
-                self.assertEqual(self.client.get(url).status_code, 200)
+                self.assertContains(self.client.get(self.ficha()), 'Guardar cambios')
 
         self.login(self.emp_a)
-        self.assertRedirects(self.client.get(url), reverse('dashboard'))
+        resp = self.client.get(self.ficha())
+        self.assertEqual(resp.status_code, 200)          # la ficha sí la ve
+        self.assertNotContains(resp, 'Guardar cambios')  # editarla, no
 
     def test_empleado_no_puede_cambiar_precio_por_post(self):
         self.login(self.emp_a)
-        self.client.post(reverse('productos:edit', args=[self.producto.pk]),
-                         {'nombre': 'Hackeado', 'precio': '1'})
+        self.client.post(self.ficha(), {'nombre': 'Hackeado', 'precio': '1'})
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.nombre, 'Pallet plástico')
         self.assertIsNone(self.producto.precio)
+
+    def test_la_url_vieja_de_edicion_lleva_a_la_ficha(self):
+        self.login(self.gerente)
+        resp = self.client.get(reverse('productos:edit', args=[self.producto.pk]))
+        self.assertRedirects(resp, self.ficha(), status_code=301)
 
     def test_el_catalogo_lo_ve_cualquier_rol(self):
         for user in (self.admin, self.gerente, self.emp_a):
