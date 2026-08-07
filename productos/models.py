@@ -2,10 +2,33 @@ import base64
 
 from django.db import models
 
+# El catálogo importado de Enexpro no trae unidad, así que el campo admite
+# vacío: solo las altas manuales la cargan.
+UNIDADES_MEDIDA = [
+    ('UN', 'Unidad'),
+    ('PAR', 'Par'),
+    ('CAJA', 'Caja'),
+    ('PACK', 'Pack'),
+    ('BOLSA', 'Bolsa'),
+    ('ROLLO', 'Rollo'),
+    ('KG', 'Kilogramo'),
+    ('GR', 'Gramo'),
+    ('TN', 'Tonelada'),
+    ('LT', 'Litro'),
+    ('M', 'Metro'),
+    ('M2', 'Metro cuadrado'),
+    ('M3', 'Metro cúbico'),
+]
+
 
 class Producto(models.Model):
     codigo = models.CharField(max_length=50, unique=True, verbose_name='Código')
     nombre = models.CharField(max_length=300, verbose_name='Nombre')
+    unidad_medida = models.CharField(
+        max_length=10, blank=True,
+        choices=UNIDADES_MEDIDA,
+        verbose_name='Unidad de medida',
+    )
     categoria = models.CharField(max_length=150, blank=True, verbose_name='Categoría')
     subcategoria = models.CharField(max_length=150, blank=True, verbose_name='Subcategoría')
     precio = models.DecimalField(

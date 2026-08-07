@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo artículo - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-center gap-3">
+  <a href="{% url 'productos:catalogo' %}" class="text-sm text-gray-400 hover:text-gray-600">← Volver al catálogo</a>
+  <span class="text-gray-300">/</span>
+  <span class="text-sm text-gray-500">Nuevo artículo</span>
+</div>
+
+<div class="max-w-2xl">
+  <h1 class="text-xl font-bold text-gray-900 mb-6">Nuevo artículo</h1>
+
+  {% if form.non_field_errors %}
+  <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-700">
+    {{ form.non_field_errors.0 }}
+  </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Datos del artículo</h2>
+
+      {% for field in form %}
+      {% if field.name != 'imagen' %}
+      <div>
+        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+          {{ field.label }}
+        </label>
+        {{ field }}
+        {% if field.errors %}
+        <p class="mt-1 text-xs text-red-600">{{ field.errors.0 }}</p>
+        {% elif field.help_text %}
+        <p class="text-xs text-gray-400 mt-1">{{ field.help_text }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+
+      <datalist id="categorias-existentes">
+        {% for categoria in categorias %}
+        <option value="{{ categoria }}"></option>
+        {% endfor %}
+      </datalist>
+    </div>
+
+    <!-- Imagen -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Imagen</h2>
+
+      <div class="flex items-start gap-6">
+        <div class="w-40 h-40 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+          <div id="foto-preview" class="flex flex-col items-center text-gray-300">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span class="text-xs mt-1">Sin imagen</span>
+          </div>
+        </div>
+
+        <div class="flex-1">
+          <label for="{{ form.imagen.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            {{ form.imagen.label }}
+          </label>
+          {{ form.imagen }}
+          {% if form.imagen.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.imagen.errors.0 }}</p>
+          {% else %}
+          <p class="text-xs text-gray-400 mt-1">{{ form.imagen.help_text }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+              class="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+        Crear artículo
+      </button>
+      <a href="{% url 'productos:catalogo' %}"
+         class="px-6 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Preview inmediato al seleccionar archivo
+  document.getElementById('foto-input').addEventListener('change', function () {
+    var file = this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var prev = document.getElementById('foto-preview');
+      if (prev.tagName === 'IMG') {
+        prev.src = e.target.result;
+      } else {
+        var img = document.createElement('img');
+        img.id = 'foto-preview';
+        img.src = e.target.result;
+        img.className = 'max-w-full max-h-full object-contain p-2';
+        prev.replaceWith(img);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+</script>
+{% endblock %}

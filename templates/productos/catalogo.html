@@ -13,6 +13,12 @@
     <p class="text-sm text-gray-500 mt-1">Búsqueda: "{{ q }}" &middot; {{ total }} resultado{{ total|pluralize }}</p>
     {% endif %}
   </div>
+  {% if user.puede_editar_catalogo %}
+  <a href="{% url 'productos:create' %}"
+     class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+    + Nuevo artículo
+  </a>
+  {% endif %}
 </div>
 
 <div class="flex gap-6">
