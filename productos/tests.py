@@ -531,3 +531,116 @@ class MonedaDelFormatoTest(TestCase):
         """'[$USD]' también contiene un '$': hay que preguntar por USD primero."""
         self.importar([('A1', 'Algo', 'Un', 100, '[$USD]\ #,##0.00;\-[$USD]\ #,##0.00')])
         self.assertEqual(Producto.objects.get(codigo='A1').moneda, USD)
+
+
+def excel_con_categorias(filas):
+    """Layout del export con categorías: la col 0 va vacía y la categoría es un
+    encabezado de grupo en la col 1.
+
+    Cada fila es (categoria_o_None, codigo, descripcion, unidad, precio, formato).
+    """
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Articulos'
+    for categoria, codigo, desc, unidad, precio, formato in filas:
+        ws.append([None, categoria, codigo, desc, unidad, precio])
+        if formato:
+            ws.cell(row=ws.max_row, column=6).number_format = formato
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+class ImportarConCategoriasTest(TestCase):
+    """El export de 6 columnas donde la categoría encabeza el grupo."""
+
+    def importar(self, filas, **opciones):
+        salida = io.StringIO()
+        with como_archivo(excel_con_categorias(filas)) as ruta:
+            call_command('importar_articulos', ruta, formato='lista-con-categorias',
+                         stdout=salida, stderr=salida, **opciones)
+        return salida.getvalue()
+
+    def test_lee_las_seis_columnas(self):
+        self.importar([('Armarios', '215665', 'ARMARIO', 'Un', 499586.77, FORMATO_ARS)])
+
+        producto = Producto.objects.get(codigo='215665')
+        self.assertEqual(producto.categoria, 'Armarios')
+        self.assertEqual(producto.nombre, 'ARMARIO')
+        self.assertEqual(producto.unidad_medida, 'UN')
+        self.assertEqual(producto.precio, Decimal('499586.77'))
+        self.assertEqual(producto.moneda, ARS)
+
+    def test_arrastra_la_categoria_hacia_abajo(self):
+        """Solo el primero del grupo la trae; los de abajo la heredan."""
+        self.importar([
+            ('Armarios', 'A1', 'Armario chico', 'Un', 10, FORMATO_ARS),
+            (None, 'A2', 'Armario mediano', 'Un', 20, FORMATO_ARS),
+            (None, 'A3', 'Armario grande', 'Un', 30, FORMATO_ARS),
+        ])
+        for codigo in ('A1', 'A2', 'A3'):
+            self.assertEqual(Producto.objects.get(codigo=codigo).categoria, 'Armarios')
+
+    def test_el_grupo_siguiente_corta_el_arrastre(self):
+        self.importar([
+            ('Armarios', 'A1', 'Armario', 'Un', 10, FORMATO_ARS),
+            (None, 'A2', 'Otro armario', 'Un', 20, FORMATO_ARS),
+            ('Bandejas', 'B1', 'Bandeja', 'Un', 30, FORMATO_ARS),
+            (None, 'B2', 'Otra bandeja', 'Un', 40, FORMATO_ARS),
+        ])
+        self.assertEqual(Producto.objects.get(codigo='A2').categoria, 'Armarios')
+        self.assertEqual(Producto.objects.get(codigo='B1').categoria, 'Bandejas')
+        self.assertEqual(Producto.objects.get(codigo='B2').categoria, 'Bandejas')
+
+    def test_le_saca_los_espacios_a_la_categoria(self):
+        """El export trae 'Bandejas ' con espacio al final."""
+        self.importar([('Bandejas ', 'B1', 'Bandeja', 'Un', 10, FORMATO_ARS)])
+        self.assertEqual(Producto.objects.get(codigo='B1').categoria, 'Bandejas')
+
+    def test_la_moneda_sigue_saliendo_del_formato(self):
+        self.importar([
+            ('Pallets', 'P1', 'Pallet', 'Un', 49.50, FORMATO_USD),
+            (None, 'P2', 'Otro pallet', 'Un', 193542.96, FORMATO_ARS),
+        ])
+        self.assertEqual(Producto.objects.get(codigo='P1').moneda, USD)
+        self.assertEqual(Producto.objects.get(codigo='P2').moneda, ARS)
+
+    def test_las_filas_antes_del_primer_grupo_caen_en_el_respaldo(self):
+        salida = self.importar(
+            [(None, 'X1', 'Huérfano', 'Un', 10, FORMATO_ARS)],
+            categoria='Sin clasificar',
+        )
+        self.assertEqual(Producto.objects.get(codigo='X1').categoria, 'Sin clasificar')
+        self.assertIn('Sin clasificar', salida)
+
+    def test_le_pone_la_categoria_a_lo_que_ya_estaba_sin_clasificar(self):
+        """El caso real: los artículos ya están importados, falta clasificarlos."""
+        Producto.objects.create(codigo='P1', nombre='Pallet', categoria='Sin clasificar',
+                                precio=Decimal('49.50'), moneda=USD)
+        self.importar([('pallets plasticos', 'P1', 'Pallet', 'Un', 49.50, FORMATO_USD)])
+
+        self.assertEqual(Producto.objects.count(), 1)
+        producto = Producto.objects.get(codigo='P1')
+        self.assertEqual(producto.categoria, 'pallets plasticos')
+        self.assertEqual(producto.precio, Decimal('49.50'))
+
+    def test_no_toca_los_que_no_vienen_en_el_archivo(self):
+        """Un export más corto no borra ni desactiva lo que quedó afuera."""
+        Producto.objects.create(codigo='VIEJO', nombre='Descontinuado',
+                                categoria='Sin clasificar', precio=Decimal('100'))
+        self.importar([('Armarios', 'A1', 'Armario', 'Un', 10, FORMATO_ARS)])
+
+        viejo = Producto.objects.get(codigo='VIEJO')
+        self.assertEqual(viejo.categoria, 'Sin clasificar')
+        self.assertTrue(viejo.activo)
+
+    def test_lista_las_categorias_en_el_resumen(self):
+        salida = self.importar([
+            ('Armarios', 'A1', 'Armario', 'Un', 10, FORMATO_ARS),
+            ('Bandejas', 'B1', 'Bandeja', 'Un', 20, FORMATO_ARS),
+        ])
+        self.assertIn('categorías (2)', salida)
+        self.assertIn('Armarios', salida)
+        self.assertIn('Bandejas', salida)

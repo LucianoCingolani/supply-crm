@@ -1,10 +1,14 @@
 """Importa el catálogo desde un Excel del sistema de gestión.
 
-Hay dos exports distintos y ninguno de los dos declara su formato, así que lo
-elige quien importa con --formato:
+Hay tres exports distintos y ninguno declara su formato, así que lo elige quien
+importa con --formato:
 
-  enexpro  Código | Nombre | Categoría | Subcategoría | Precio, desde la fila 3.
-  lista    Código | Descripción | Unidad | Precio, desde la fila 1, sin encabezado.
+  enexpro           Código | Nombre | Categoría | Subcategoría | Precio, desde la fila 3.
+  lista             Código | Descripción | Unidad | Precio, desde la fila 1, sin encabezado.
+  lista-con-categorias
+                    (vacía) | Categoría | Código | Descripción | Unidad | Precio.
+                    La categoría es un encabezado de grupo: figura solo en la
+                    primera fila del grupo y rige hasta la siguiente.
 
 En el export 'lista' la moneda no es una columna: está en el formato de la
 celda de precio ('[$USD] #,##0.00' contra '"$" #,##0.00'), que es lo que hace
@@ -86,26 +90,52 @@ def leer_enexpro(ws, opciones):
         }
 
 
+def _valor(celda):
+    return celda.value if celda is not None else None
+
+
+def _desde_celdas(codigo, nombre, unidad, precio, categoria, opciones):
+    declarada = moneda_del_formato(
+        precio.number_format if precio is not None else '', None)
+    return {
+        'codigo': _limpiar(_valor(codigo)),
+        'nombre': _limpiar(_valor(nombre)),
+        'categoria': categoria,
+        'subcategoria': '',
+        'unidad_medida': _unidad(_valor(unidad)),
+        'precio': _precio(_valor(precio)),
+        'moneda': declarada or opciones['moneda'],
+        'moneda_declarada': declarada is not None,
+    }
+
+
 def leer_lista(ws, opciones):
     """El export no trae categoría: la pone quien importa con --categoria."""
     for fila in ws.iter_rows(min_row=1):
         celdas = list(fila) + [None] * 4
-        codigo, nombre, unidad, precio = celdas[:4]
-        formato = precio.number_format if precio is not None else ''
-        declarada = moneda_del_formato(formato, None)
-        yield {
-            'codigo': _limpiar(codigo.value if codigo is not None else None),
-            'nombre': _limpiar(nombre.value if nombre is not None else None),
-            'categoria': '',
-            'subcategoria': '',
-            'unidad_medida': _unidad(unidad.value if unidad is not None else None),
-            'precio': _precio(precio.value if precio is not None else None),
-            'moneda': declarada or opciones['moneda'],
-            'moneda_declarada': declarada is not None,
-        }
+        yield _desde_celdas(celdas[0], celdas[1], celdas[2], celdas[3], '', opciones)
 
 
-FORMATOS = {'enexpro': leer_enexpro, 'lista': leer_lista}
+def leer_lista_con_categorias(ws, opciones):
+    """La categoría es un encabezado de grupo, no un dato de cada fila.
+
+    Figura solo en el primer artículo del grupo, así que se arrastra hacia abajo
+    hasta que aparece la siguiente.
+    """
+    categoria = ''
+    for fila in ws.iter_rows(min_row=1):
+        celdas = list(fila) + [None] * 6
+        titulo = _limpiar(_valor(celdas[1]))
+        if titulo:
+            categoria = titulo
+        yield _desde_celdas(celdas[2], celdas[3], celdas[4], celdas[5], categoria, opciones)
+
+
+FORMATOS = {
+    'enexpro': leer_enexpro,
+    'lista': leer_lista,
+    'lista-con-categorias': leer_lista_con_categorias,
+}
 
 ACTUALIZABLES = ['nombre', 'categoria', 'subcategoria', 'unidad_medida',
                  'precio', 'moneda', 'updated_at']
@@ -220,7 +250,6 @@ class Command(BaseCommand):
         self.stdout.write(f'  se actualizan     : {len(existentes)}')
         self.stdout.write(f'  con precio        : {con_precio}')
         self.stdout.write(f'  sin precio        : {len(objetos) - con_precio}')
-        self.stdout.write(f'  categoría         : {options["categoria"] or "(vacía)"}')
         if sin_unidad:
             self.stdout.write(f'  sin unidad recon. : {sin_unidad}')
 
@@ -239,6 +268,13 @@ class Command(BaseCommand):
             f'{etiquetas.get(u, "sin unidad")}: {n}' for u, n in sorted(unidades.items())
         )
         self.stdout.write(f'  unidades          : {detalle}')
+
+        categorias = {}
+        for o in objetos:
+            categorias[o.categoria] = categorias.get(o.categoria, 0) + 1
+        self.stdout.write(f'\n  categorías ({len(categorias)}):')
+        for nombre, n in sorted(categorias.items(), key=lambda x: (-x[1], x[0])):
+            self.stdout.write(f'    {n:>4}  {nombre or "(vacía)"}')
 
         # Con precio pero sin moneda declarada: quedan en el respaldo, y eso es
         # una suposición que quien importa tiene que poder revisar.
