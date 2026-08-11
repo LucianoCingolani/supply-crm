@@ -1,13 +1,40 @@
 {% extends "base.html" %}
 
-{% block title %}Editar cliente - Supply Argentina{% endblock %}
+{% block title %}{{ titulo }} - Supply Argentina{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl">
     <div class="flex items-center gap-3 mb-6">
-        <a href="{% url 'clientes:detail' cliente.pk %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
-        <h1 class="text-2xl font-bold text-gray-900">Editar cliente</h1>
+        <a href="{{ volver_url }}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ titulo }}</h1>
     </div>
+
+    {% if duplicados %}
+    <div class="mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+        <p class="font-semibold">Ya hay un cliente con ese CUIT.</p>
+        <ul class="mt-2 space-y-1">
+            {% for d in duplicados %}
+            <li>
+                {% if d.visible %}
+                <a href="{% url 'clientes:detail' d.cliente.pk %}" class="font-medium underline">{{ d.cliente.razon_social }}</a>
+                {% if d.cliente.vendedor %}<span class="text-amber-700">— {{ d.cliente.vendedor.get_full_name|default:d.cliente.vendedor.email }}</span>{% endif %}
+                {% else %}
+                <span class="font-medium">{{ d.cliente.razon_social }}</span>
+                <span class="text-amber-700">— está en la cartera de
+                    {{ d.cliente.vendedor.get_full_name|default:d.cliente.vendedor.email|default:"nadie" }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        <p class="mt-2">
+            {% if puede_forzar %}
+            Si es otra empresa que comparte el CUIT, guardalo igual con el botón de abajo.
+            {% else %}
+            Si es el mismo cliente, trabajá sobre su ficha. Si no lo ves, pedile al gerente que te lo asigne.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <form method="post" class="space-y-4">
@@ -20,15 +47,26 @@
                 {{ field }}
                 {% if field.errors %}
                 <p class="mt-1 text-xs text-red-600">{{ field.errors.0 }}</p>
+                {% elif field.help_text %}
+                <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
                 {% endif %}
             </div>
             {% endfor %}
             <div class="pt-2 flex gap-3">
+                {% if duplicados %}
+                {% if puede_forzar %}
+                <button type="submit" name="confirmar" value="1"
+                        class="px-5 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700">
+                    Guardar igual
+                </button>
+                {% endif %}
+                {% else %}
                 <button type="submit"
                         class="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
                     Guardar
                 </button>
-                <a href="{% url 'clientes:detail' cliente.pk %}"
+                {% endif %}
+                <a href="{{ volver_url }}"
                    class="px-5 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
                     Cancelar
                 </a>

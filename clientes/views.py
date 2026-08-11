@@ -151,13 +151,79 @@ class ClienteDetailView(ClienteAccesoMixin, View):
                       self.contexto(request, cliente, seg_form=form))
 
 
+class ClienteCreateView(LoginRequiredMixin, View):
+    """Alta de un cliente que consulta por primera vez.
+
+    Cualquiera puede cargarlo: el que atiende la consulta es el que tiene los
+    datos. Avisa si el CUIT ya está en la base, que es la forma en que este
+    listado de 3900 clientes se llena de duplicados.
+    """
+
+    def get(self, request):
+        return self.render_form(request, ClienteForm(
+            editor=request.user, initial=self.inicial(request)))
+
+    def post(self, request):
+        form = ClienteForm(request.POST, editor=request.user)
+        if not form.is_valid():
+            return self.render_form(request, form)
+
+        duplicados = self.duplicados(request, form.cleaned_data.get('cuit', ''))
+        # Frenar en el primer intento y mostrar con quién choca. Forzar el alta
+        # queda para quien reparte la cartera: un empleado que ve un duplicado
+        # casi siempre está por cargar de nuevo un cliente que ya existe.
+        if duplicados and not (request.POST.get('confirmar')
+                               and request.user.puede_asignar_clientes):
+            return self.render_form(request, form, duplicados)
+
+        cliente = form.save(commit=False)
+        # El que lo trae se lo queda. Sin esto un empleado carga un cliente y
+        # lo pierde de vista, porque solo ve lo que tiene asignado.
+        if not request.user.puede_asignar_clientes:
+            cliente.vendedor = request.user
+        cliente.save()
+        messages.success(request, f'Cliente "{cliente.razon_social}" creado.')
+        return redirect('clientes:detail', pk=cliente.pk)
+
+    def inicial(self, request):
+        """Al que puede elegir vendedor se le propone él mismo, sin obligarlo."""
+        if request.user.puede_asignar_clientes:
+            return {'vendedor': request.user}
+        return {}
+
+    def duplicados(self, request, cuit):
+        """Clientes con ese mismo CUIT, marcando los que el usuario puede ver.
+
+        Uno que no ve no lo puede abrir: está en la cartera de otro y eso lo
+        resuelve el gerente asignándoselo.
+        """
+        cuit = normalizar_cuit(cuit)
+        if not cuit:
+            return []
+        visibles = set(
+            Cliente.objects.visibles_para(request.user)
+            .filter(cuit=cuit).values_list('pk', flat=True)
+        )
+        return [
+            {'cliente': c, 'visible': c.pk in visibles}
+            for c in Cliente.objects.filter(cuit=cuit).select_related('vendedor')
+        ]
+
+    def render_form(self, request, form, duplicados=None):
+        return render(request, 'clientes/form.html', {
+            'form': form,
+            'titulo': 'Nuevo cliente',
+            'volver_url': reverse('clientes:list'),
+            'duplicados': duplicados,
+            'puede_forzar': request.user.puede_asignar_clientes,
+        })
+
+
 class ClienteEditView(ClienteAccesoMixin, View):
     def get(self, request, pk):
         cliente = self.get_cliente(pk)
-        return render(request, 'clientes/form.html', {
-            'form': ClienteForm(instance=cliente, editor=request.user),
-            'cliente': cliente,
-        })
+        return self.render_form(request, cliente,
+                                ClienteForm(instance=cliente, editor=request.user))
 
     def post(self, request, pk):
         cliente = self.get_cliente(pk)
@@ -165,9 +231,14 @@ class ClienteEditView(ClienteAccesoMixin, View):
         if form.is_valid():
             form.save()
             return redirect('clientes:detail', pk=pk)
+        return self.render_form(request, cliente, form)
+
+    def render_form(self, request, cliente, form):
         return render(request, 'clientes/form.html', {
             'form': form,
             'cliente': cliente,
+            'titulo': 'Editar cliente',
+            'volver_url': reverse('clientes:detail', args=[cliente.pk]),
         })
 
 
