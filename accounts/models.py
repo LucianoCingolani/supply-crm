@@ -104,6 +104,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.role in self.ROLES_VISION_TOTAL
 
     @property
+    def puede_borrar_clientes(self):
+        """Borrar un cliente rompe vínculos y se lleva su seguimiento: no es
+        algo que deba poder hacer quien solo trabaja su cartera."""
+        return self.role in self.ROLES_VISION_TOTAL
+
+    @property
     def puede_editar_catalogo(self):
         return self.role in self.ROLES_VISION_TOTAL
 

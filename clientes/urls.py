@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
-    ClienteAsignarView, ClienteCreateView, ClienteDetailView, ClienteEditView,
-    ClienteListView, ClienteSearchView,
+    ClienteAsignarView, ClienteBorrarView, ClienteCreateView, ClienteDetailView,
+    ClienteEditView, ClienteListView, ClienteSearchView,
 )
 
 app_name = 'clientes'
@@ -13,4 +13,5 @@ urlpatterns = [
     path('buscar/', ClienteSearchView.as_view(), name='search'),
     path('<int:pk>/', ClienteDetailView.as_view(), name='detail'),
     path('<int:pk>/editar/', ClienteEditView.as_view(), name='edit'),
+    path('<int:pk>/borrar/', ClienteBorrarView.as_view(), name='borrar'),
 ]

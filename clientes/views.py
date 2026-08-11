@@ -242,6 +242,38 @@ class ClienteEditView(ClienteAccesoMixin, View):
         })
 
 
+class ClienteBorrarView(CapacidadRequeridaMixin, View):
+    """Baja definitiva de un cliente, con una pantalla que dice qué se pierde.
+
+    No es una operación inocente: las consultas quedan sin cliente (SET_NULL) y
+    los seguimientos se borran con él (CASCADE). Por eso el GET nunca borra, y
+    la confirmación muestra los números concretos de ese cliente.
+    """
+
+    capacidad = 'puede_borrar_clientes'
+
+    def get(self, request, pk):
+        cliente = self.get_cliente(pk)
+        return render(request, 'clientes/confirmar_borrado.html', {
+            'cliente': cliente,
+            'consultas': cliente.consultas.count(),
+            'seguimientos': cliente.seguimientos.count(),
+        })
+
+    def post(self, request, pk):
+        cliente = self.get_cliente(pk)
+        nombre = cliente.razon_social
+        cliente.delete()
+        messages.success(request, f'Cliente "{nombre}" borrado.')
+        return redirect('clientes:list')
+
+    def get_cliente(self, pk):
+        # Por la capacidad acá solo entran Admin y Gerente, que ven todo; pasa
+        # igual por visibles_para para no depender de eso.
+        return get_object_or_404(
+            Cliente.objects.visibles_para(self.request.user), pk=pk)
+
+
 class ClienteAsignarView(CapacidadRequeridaMixin, View):
     """Asigna en lote los clientes tildados en la lista."""
 

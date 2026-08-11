@@ -1,8 +1,9 @@
-"""Alta de un cliente nuevo desde la web.
+"""Alta y baja de clientes desde la web.
 
 Hasta acá los clientes solo entraban por el importador del sistema de
 facturación. El que atiende una consulta de alguien que llama por primera vez
-necesita poder cargarlo en el momento.
+necesita poder cargarlo en el momento, y alguien tiene que poder sacar los
+duplicados que eso genera.
 """
 
 from django.contrib.auth import get_user_model
@@ -10,6 +11,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from clientes.models import Cliente
+from consultas.models import Consulta, LineaCotizacion, SeguimientoLog
 
 User = get_user_model()
 
@@ -199,3 +201,112 @@ class EdicionSigueAndandoTest(BaseAltaTest):
                          {'razon_social': 'ACME SRL Renombrada', 'cuit': '30-71234567-8'})
         self.cliente.refresh_from_db()
         self.assertEqual(self.cliente.razon_social, 'ACME SRL Renombrada')
+
+
+class BorrarClienteTest(TestCase):
+    """Baja definitiva. El GET nunca borra: primero muestra qué se pierde."""
+
+    def setUp(self):
+        self.admin = usuario('ad@test.com', User.ADMIN)
+        self.gerente = usuario('g@test.com', User.GERENTE)
+        self.emp = usuario('e@test.com', User.EMPLEADO)
+        self.cliente = Cliente.objects.create(
+            razon_social='ACME SRL', cuit='30-71234567-8', vendedor=self.emp)
+        self.url = reverse('clientes:borrar', args=[self.cliente.pk])
+
+    def test_el_empleado_no_entra_ni_a_la_confirmacion(self):
+        self.client.force_login(self.emp)
+        self.assertRedirects(self.client.get(self.url), reverse('dashboard'))
+
+    def test_el_empleado_tampoco_puede_borrar_por_post(self):
+        self.client.force_login(self.emp)
+        self.client.post(self.url)
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.pk).exists())
+
+    def test_al_empleado_no_se_le_muestra_el_boton(self):
+        self.client.force_login(self.emp)
+        respuesta = self.client.get(reverse('clientes:detail', args=[self.cliente.pk]))
+        self.assertNotContains(respuesta, self.url)
+
+    def test_el_gerente_y_el_admin_entran(self):
+        for user in (self.gerente, self.admin):
+            with self.subTest(rol=user.role):
+                self.client.force_login(user)
+                self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_la_ficha_les_ofrece_el_boton(self):
+        self.client.force_login(self.gerente)
+        respuesta = self.client.get(reverse('clientes:detail', args=[self.cliente.pk]))
+        self.assertContains(respuesta, self.url)
+
+    def test_el_get_no_borra(self):
+        """Un prefetch del navegador o un bot no puede vaciar la cartera."""
+        self.client.force_login(self.gerente)
+        self.client.get(self.url)
+        self.assertTrue(Cliente.objects.filter(pk=self.cliente.pk).exists())
+
+    def test_el_post_borra_y_vuelve_al_listado(self):
+        self.client.force_login(self.gerente)
+        respuesta = self.client.post(self.url)
+
+        self.assertFalse(Cliente.objects.filter(pk=self.cliente.pk).exists())
+        self.assertRedirects(respuesta, reverse('clientes:list'))
+
+    def test_avisa_el_nombre_de_lo_que_borro(self):
+        self.client.force_login(self.gerente)
+        respuesta = self.client.post(self.url, follow=True)
+        self.assertContains(respuesta, 'ACME SRL')
+
+    def test_un_cliente_que_no_existe_da_404(self):
+        self.client.force_login(self.gerente)
+        self.assertEqual(self.client.get(reverse('clientes:borrar', args=[99999])).status_code, 404)
+
+
+class BorrarConHistorialTest(TestCase):
+    """Lo que la confirmación tiene que decir, y lo que efectivamente pasa."""
+
+    def setUp(self):
+        self.gerente = usuario('g@test.com', User.GERENTE)
+        self.emp = usuario('e@test.com', User.EMPLEADO)
+        self.cliente = Cliente.objects.create(
+            razon_social='ACME SRL', cuit='30-71234567-8',
+            vendedor=self.emp, id_facturacion=3412)
+        self.consulta = Consulta.objects.create(
+            productos='Pallets', razon_social='ACME SRL',
+            cliente=self.cliente, vendedor=self.emp)
+        self.linea = LineaCotizacion.objects.create(
+            consulta=self.consulta, descripcion='Pallet', cantidad=1, precio_unitario=100)
+        self.seguimiento = SeguimientoLog.objects.create(
+            cliente=self.cliente, user=self.emp, nota='Llamé, quedó en confirmar')
+        self.url = reverse('clientes:borrar', args=[self.cliente.pk])
+        self.client.force_login(self.gerente)
+
+    def test_la_confirmacion_cuenta_consultas_y_seguimientos(self):
+        respuesta = self.client.get(self.url)
+        self.assertContains(respuesta, 'Consultas: 1')
+        self.assertContains(respuesta, 'Seguimientos: 1')
+
+    def test_la_confirmacion_avisa_que_la_importacion_lo_recrea(self):
+        respuesta = self.client.get(self.url)
+        self.assertContains(respuesta, '3412')
+        self.assertContains(respuesta, 'vuelve a crear')
+
+    def test_las_consultas_sobreviven_sin_cliente(self):
+        self.client.post(self.url)
+        self.consulta.refresh_from_db()
+        self.assertIsNone(self.consulta.cliente)
+        self.assertEqual(self.consulta.razon_social, 'ACME SRL')
+
+    def test_las_cotizaciones_sobreviven(self):
+        self.client.post(self.url)
+        self.assertTrue(LineaCotizacion.objects.filter(pk=self.linea.pk).exists())
+
+    def test_los_seguimientos_se_van_con_el_cliente(self):
+        self.client.post(self.url)
+        self.assertFalse(SeguimientoLog.objects.filter(pk=self.seguimiento.pk).exists())
+
+    def test_sin_historial_lo_dice(self):
+        limpio = Cliente.objects.create(razon_social='Recién cargado')
+        respuesta = self.client.get(reverse('clientes:borrar', args=[limpio.pk]))
+        self.assertContains(respuesta, 'no se pierde historial')
+        self.assertNotContains(respuesta, 'Seguimientos:')

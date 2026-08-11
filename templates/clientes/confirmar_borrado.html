@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Borrar {{ cliente.razon_social }} - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'clientes:detail' cliente.pk %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+        <h1 class="text-2xl font-bold text-gray-900">Borrar cliente</h1>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100">
+            <p class="text-lg font-semibold text-gray-900">{{ cliente.razon_social }}</p>
+            <p class="text-sm text-gray-500 mt-1">
+                {% if cliente.cuit %}{{ cliente.cuit }}{% endif %}
+                {% if cliente.ubicacion %}&middot; {{ cliente.ubicacion }}{% endif %}
+                {% if cliente.vendedor %}&middot; {{ cliente.vendedor.get_full_name|default:cliente.vendedor.email }}{% endif %}
+            </p>
+        </div>
+
+        <div class="px-6 py-5 bg-red-50 border-b border-red-100">
+            <p class="text-sm font-semibold text-red-800">Esto no se puede deshacer.</p>
+            <ul class="mt-3 space-y-2 text-sm text-red-900">
+                {% if consultas %}
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-0.5">•</span>
+                    <span>
+                        <strong>Consultas: {{ consultas }}</strong> — quedan sin cliente.
+                        No se borran ni pierden sus cotizaciones, y conservan la razón social
+                        copiada, pero dejan de estar vinculadas a una ficha.
+                    </span>
+                </li>
+                {% endif %}
+                {% if seguimientos %}
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-0.5">•</span>
+                    <span><strong>Seguimientos: {{ seguimientos }}</strong> — se borran junto con el cliente.</span>
+                </li>
+                {% endif %}
+                {% if cliente.id_facturacion %}
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-0.5">•</span>
+                    <span>Vino del sistema de facturación (ID {{ cliente.id_facturacion }}):
+                        si sigue estando allá, <strong>la próxima importación lo vuelve a crear</strong>
+                        — sin el seguimiento ni el vínculo con sus consultas.</span>
+                </li>
+                {% endif %}
+                {% if not consultas and not seguimientos and not cliente.id_facturacion %}
+                <li class="flex items-start gap-2">
+                    <span class="text-red-400 mt-0.5">•</span>
+                    <span>No tiene consultas ni seguimientos, así que no se pierde historial.</span>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <div class="px-6 py-4 flex gap-3">
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit"
+                        class="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+                    Borrar definitivamente
+                </button>
+            </form>
+            <a href="{% url 'clientes:detail' cliente.pk %}"
+               class="px-5 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+                Cancelar
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -8,10 +8,18 @@
         <a href="{% url 'clientes:list' %}" class="text-gray-400 hover:text-gray-600">← Clientes</a>
         <h1 class="text-2xl font-bold text-gray-900">{{ cliente.razon_social }}</h1>
     </div>
-    <a href="{% url 'clientes:edit' cliente.pk %}"
-       class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
-        Editar cliente
-    </a>
+    <div class="flex items-center gap-2">
+        <a href="{% url 'clientes:edit' cliente.pk %}"
+           class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+            Editar cliente
+        </a>
+        {% if user.puede_borrar_clientes %}
+        <a href="{% url 'clientes:borrar' cliente.pk %}"
+           class="px-4 py-2 bg-white border border-gray-300 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 hover:border-red-200">
+            Borrar
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
