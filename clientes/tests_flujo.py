@@ -38,10 +38,19 @@ class SinAltaSuletaTest(TestCase):
     def test_la_vieja_url_de_alta_ya_no_responde(self):
         self.assertEqual(self.client.get('/consultas/nueva/').status_code, 404)
 
-    def test_la_lista_de_consultas_no_ofrece_crear(self):
+    def test_la_lista_de_consultas_no_ofrece_importar(self):
         cuerpo = self.client.get(reverse('consultas:list')).content.decode()
         self.assertNotIn('Importar PDF', cuerpo)
-        self.assertNotIn('+ Nueva consulta', cuerpo)
+
+    def test_la_lista_ofrece_crear_pero_pasando_por_un_cliente(self):
+        """El botón volvió, y con él el modal. La regla no cambió: los dos
+        caminos del modal terminan en un cliente elegido, y las pantallas de
+        alta y cotización siguen exigiendo su pk en la URL.
+        """
+        cuerpo = self.client.get(reverse('consultas:list')).content.decode()
+        self.assertIn('+ Nueva consulta', cuerpo)
+        self.assertIn('Cliente existente', cuerpo)
+        self.assertIn('Cliente nuevo', cuerpo)
 
 
 class AltaDesdeLaFichaTest(TestCase):

@@ -51,9 +51,25 @@
                 <div>
                     <dt class="text-gray-400 text-xs">Teléfono</dt>
                     <dd class="mt-0.5">
+                        {% if cliente.whatsapp %}
+                        <span class="font-medium">{{ cliente.telefono }}</span>
+                        {% else %}
+                        {# Sin WhatsApp cargado el teléfono sigue siendo el atajo, como venía #}
                         <a href="https://wa.me/54{{ cliente.telefono|cut:' '|cut:'-'|cut:'+' }}"
                            target="_blank" class="text-green-600 hover:underline font-medium">
                             {{ cliente.telefono }}
+                        </a>
+                        {% endif %}
+                    </dd>
+                </div>
+                {% endif %}
+                {% if cliente.whatsapp %}
+                <div>
+                    <dt class="text-gray-400 text-xs">WhatsApp</dt>
+                    <dd class="mt-0.5">
+                        <a href="https://wa.me/54{{ cliente.whatsapp|cut:' '|cut:'-'|cut:'+' }}"
+                           target="_blank" class="text-green-600 hover:underline font-medium">
+                            {{ cliente.whatsapp }}
                         </a>
                     </dd>
                 </div>

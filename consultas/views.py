@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.views import View
 
+from clientes.models import Cliente, normalizar_cuit
 from productos.models import ARS, MONEDAS, Producto
 from .forms import ConsultaClienteForm, FiltroConsultaForm, SeguimientoForm
 from .models import Consulta, LineaCotizacion
@@ -33,16 +34,28 @@ def leer_tipo_cambio(request):
     return (valor, True) if valor > 0 else (None, False)
 
 
+def categorias_de(productos):
+    """Las categorías en uso, ordenadas y sin repetir, para el filtro."""
+    return sorted({p.categoria for p in productos if p.categoria}, key=str.lower)
+
+
 def productos_para_selector(productos):
-    return json.dumps([
+    """Los datos que el selector necesita del lado del navegador.
+
+    Se entrega como lista y el template la serializa con json_script, que se
+    encarga del escapado.
+    """
+    return [
         {
             'id': p.pk,
+            'codigo': p.codigo,
             'nombre': p.nombre,
+            'categoria': p.categoria,
             'precio': float(p.precio) if p.precio else 0,
             'moneda': p.moneda,
         }
         for p in productos
-    ])
+    ]
 
 
 class ConsultaAccesoMixin(LoginRequiredMixin):
@@ -149,10 +162,11 @@ class CotizacionView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'lineas__producto')
         productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
+        # Esta pantalla arma el selector en el template, con las opciones
+        # agrupadas por categoría; no necesita los productos en JSON.
         return render(request, 'consultas/cotizacion.html', {
             'consulta': consulta,
             'productos': productos,
-            'productos_json': productos_para_selector(productos),
             'monedas': MONEDAS,
             'totales': consulta.totales(),
         })
@@ -230,7 +244,6 @@ class ClienteScopeMixin(LoginRequiredMixin):
     """Vistas que arrancan de un cliente de la cartera del usuario."""
 
     def get_cliente(self, pk):
-        from clientes.models import Cliente
         return get_object_or_404(Cliente.objects.visibles_para(self.request.user), pk=pk)
 
 
@@ -276,20 +289,67 @@ class ConsultaCreateParaClienteView(ClienteScopeMixin, View):
         })
 
 
+class ClienteRapidoView(LoginRequiredMixin, View):
+    """Alta mínima de cliente desde el modal de "Nueva consulta".
+
+    Solo lo necesario para arrancar la consulta; el resto de la ficha se
+    completa después. Termina en la pantalla de productos de ese cliente, que
+    es a dónde iba el que apretó el botón.
+    """
+
+    CAMPOS = ['cuit', 'razon_social', 'contacto', 'telefono', 'whatsapp', 'email']
+
+    def post(self, request):
+        datos = {campo: request.POST.get(campo, '').strip() for campo in self.CAMPOS}
+        if not datos['razon_social']:
+            messages.error(request, 'La razón social es obligatoria para cargar el cliente.')
+            return redirect('consultas:list')
+
+        cuit = normalizar_cuit(datos['cuit'])
+        if cuit:
+            # Si ya está cargado no se duplica: se sigue con la ficha que existe.
+            # Cargar dos veces al mismo cliente es el error que más se comete acá.
+            existente = Cliente.objects.filter(cuit=cuit).first()
+            if existente:
+                return self._seguir_con_el_existente(request, existente)
+
+        cliente = Cliente(**{**datos, 'cuit': cuit})
+        # El que lo trae se lo queda, salvo que reparta cartera: si no, lo carga
+        # y lo pierde de vista en el mismo movimiento.
+        if not request.user.puede_asignar_clientes:
+            cliente.vendedor = request.user
+        cliente.save()
+        messages.success(request, f'Cliente "{cliente.razon_social}" creado.')
+        return redirect('consultas:nueva_cotizacion', cliente_pk=cliente.pk)
+
+    def _seguir_con_el_existente(self, request, cliente):
+        visible = Cliente.objects.visibles_para(request.user).filter(pk=cliente.pk).exists()
+        if not visible:
+            messages.error(
+                request,
+                f'"{cliente.razon_social}" ya está cargado con ese CUIT, pero en la '
+                f'cartera de otro vendedor. Pedile al gerente que te lo asigne.',
+            )
+            return redirect('consultas:list')
+        messages.info(
+            request,
+            f'"{cliente.razon_social}" ya estaba cargado con ese CUIT. '
+            f'Seguimos con su ficha.',
+        )
+        return redirect('consultas:nueva_cotizacion', cliente_pk=cliente.pk)
+
+
 class NuevaCotizacionView(ClienteScopeMixin, View):
     """Cotiza a un cliente de la cartera: arma la Consulta en el fondo."""
 
-    def _productos_ctx(self):
-        productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
-        return productos, productos_para_selector(productos)
-
     def _render(self, request, cliente, fecha_str=None, post=None):
         import datetime
-        productos, productos_json = self._productos_ctx()
+        productos = list(Producto.objects.filter(activo=True).order_by('categoria', 'nombre'))
         return render(request, 'consultas/nueva_cotizacion.html', {
             'cliente': cliente,
             'productos': productos,
-            'productos_json': productos_json,
+            'productos_data': productos_para_selector(productos),
+            'categorias': categorias_de(productos),
             'hoy': fecha_str or datetime.date.today().isoformat(),
             'monedas': MONEDAS,
             'post': post,

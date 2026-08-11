@@ -1,0 +1,189 @@
+{% comment %}
+Modal de "Nueva consulta". Dos caminos, los dos terminan en un cliente elegido:
+sigue valiendo que no hay consulta sin cliente, solo cambia por dónde se entra.
+{% endcomment %}
+
+<div id="modal-nueva-consulta" class="hidden fixed inset-0 z-50">
+  <div class="absolute inset-0 bg-gray-900/50" data-cerrar-modal></div>
+
+  <div class="relative mx-auto mt-20 w-full max-w-lg px-4">
+    <div class="bg-white rounded-xl shadow-xl overflow-hidden">
+
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900">Nueva consulta</h2>
+        <button type="button" data-cerrar-modal
+                class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+      </div>
+
+      <!-- Elección de camino -->
+      <div class="px-6 pt-4">
+        <div class="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-lg">
+          <button type="button" id="tab-existente"
+                  class="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-900 shadow-sm">
+            Cliente existente
+          </button>
+          <button type="button" id="tab-nuevo"
+                  class="px-3 py-2 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700">
+            Cliente nuevo
+          </button>
+        </div>
+      </div>
+
+      <!-- Cliente existente -->
+      <div id="panel-existente" class="px-6 py-5">
+        <label for="buscar-cliente" class="block text-sm font-medium text-gray-700 mb-1">
+          Buscar por razón social o CUIT
+        </label>
+        <input type="text" id="buscar-cliente" autocomplete="off"
+               placeholder="Ej: ACME o 30-71234567-8"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+        <div id="resultados-cliente" class="mt-3 max-h-64 overflow-y-auto divide-y divide-gray-100">
+          <p class="py-6 text-center text-sm text-gray-400">Escribí para buscar.</p>
+        </div>
+      </div>
+
+      <!-- Cliente nuevo -->
+      <div id="panel-nuevo" class="hidden px-6 py-5">
+        <form method="post" action="{% url 'consultas:cliente_rapido' %}" class="space-y-3">
+          {% csrf_token %}
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Razón social</label>
+            <input type="text" name="razon_social" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">CUIT / CUIL</label>
+              <input type="text" name="cuit" placeholder="30-71234567-8"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Contacto</label>
+              <input type="text" name="contacto"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+              <input type="text" name="telefono"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp</label>
+              <input type="text" name="whatsapp"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Correo</label>
+            <input type="email" name="email"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <p class="text-xs text-gray-400">
+            Alcanza con la razón social. El resto de la ficha se completa después.
+          </p>
+          <button type="submit"
+                  class="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+            Cargar y elegir productos
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modal      = document.getElementById('modal-nueva-consulta');
+  const abrir      = document.getElementById('btn-nueva-consulta');
+  const tabExist   = document.getElementById('tab-existente');
+  const tabNuevo   = document.getElementById('tab-nuevo');
+  const panelExist = document.getElementById('panel-existente');
+  const panelNuevo = document.getElementById('panel-nuevo');
+  const buscador   = document.getElementById('buscar-cliente');
+  const resultados = document.getElementById('resultados-cliente');
+
+  const URL_BUSCAR = "{% url 'clientes:search' %}";
+  // La URL la arma Django con un pk de relleno y acá se sustituye. El reemplazo
+  // va anclado entre barras para no pisar cualquier otro 0 de la ruta.
+  const URL_COTIZAR = "{% url 'consultas:nueva_cotizacion' 0 %}";
+  const urlCotizar = pk => URL_COTIZAR.replace(/\/0\//, `/${pk}/`);
+
+  const ACTIVA   = 'px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-900 shadow-sm';
+  const INACTIVA = 'px-3 py-2 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700';
+
+  function mostrar(cual) {
+    const esExistente = cual === 'existente';
+    panelExist.classList.toggle('hidden', !esExistente);
+    panelNuevo.classList.toggle('hidden', esExistente);
+    tabExist.className = esExistente ? ACTIVA : INACTIVA;
+    tabNuevo.className = esExistente ? INACTIVA : ACTIVA;
+    if (esExistente) buscador.focus();
+  }
+
+  function abrirModal() {
+    modal.classList.remove('hidden');
+    mostrar('existente');
+  }
+
+  function cerrarModal() {
+    modal.classList.add('hidden');
+  }
+
+  abrir.addEventListener('click', abrirModal);
+  tabExist.addEventListener('click', () => mostrar('existente'));
+  tabNuevo.addEventListener('click', () => mostrar('nuevo'));
+  modal.querySelectorAll('[data-cerrar-modal]').forEach(
+    el => el.addEventListener('click', cerrarModal));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) cerrarModal();
+  });
+
+  function escHtml(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function pintar(clientes) {
+    if (!clientes.length) {
+      resultados.innerHTML =
+        '<p class="py-6 text-center text-sm text-gray-400">' +
+        'Sin resultados. Si es nuevo, cargalo en la otra pestaña.</p>';
+      return;
+    }
+    resultados.innerHTML = clientes.map(c => {
+      const detalle = [c.cuit, c.contacto, c.telefono].filter(Boolean).map(escHtml).join(' · ');
+      return `
+        <a href="${urlCotizar(c.id)}"
+           class="block px-3 py-2.5 hover:bg-blue-50 rounded-lg">
+          <p class="text-sm font-medium text-gray-900">${escHtml(c.razon_social)}</p>
+          ${detalle ? `<p class="text-xs text-gray-500 mt-0.5">${detalle}</p>` : ''}
+        </a>`;
+    }).join('');
+  }
+
+  let pendiente = null;
+  buscador.addEventListener('input', function () {
+    const q = this.value.trim();
+    clearTimeout(pendiente);
+    if (q.length < 2) {
+      resultados.innerHTML =
+        '<p class="py-6 text-center text-sm text-gray-400">Escribí para buscar.</p>';
+      return;
+    }
+    // Un pequeño retardo: si no, cada tecla dispara una consulta sobre 3900 filas.
+    pendiente = setTimeout(() => {
+      fetch(`${URL_BUSCAR}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(pintar)
+        .catch(() => {
+          resultados.innerHTML =
+            '<p class="py-6 text-center text-sm text-red-500">No se pudo buscar. Reintentá.</p>';
+        });
+    }, 250);
+  });
+})();
+</script>

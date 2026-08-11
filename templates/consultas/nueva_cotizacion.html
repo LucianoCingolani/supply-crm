@@ -78,22 +78,22 @@
 
       <!-- Selector para agregar -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
+        <div class="md:col-span-4">
+          <label class="block text-xs font-medium text-gray-500 mb-1">Filtrar por categoría</label>
+          <select id="filtro-categoria"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="">Todas las categorías ({{ productos|length }} artículos)</option>
+            {% for categoria in categorias %}
+            <option value="{{ categoria }}">{{ categoria }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="md:col-span-2 flex gap-3 items-start">
           <div class="flex-1">
           <label class="block text-xs font-medium text-gray-500 mb-1">Buscar en catálogo</label>
           <select id="selector-producto"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
             <option value="">— Seleccioná un producto —</option>
-            {% regroup productos by categoria as grupos %}
-            {% for grupo in grupos %}
-            <optgroup label="{{ grupo.grouper }}">
-              {% for p in grupo.list %}
-              <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}" data-moneda="{{ p.moneda }}">
-                {{ p.codigo }} — {{ p.nombre }}
-              </option>
-              {% endfor %}
-            </optgroup>
-            {% endfor %}
           </select>
           </div>
           <img id="foto-preview" src="" alt="" class="hidden w-16 h-16 object-contain rounded border border-gray-200 bg-white mt-5">
@@ -183,10 +183,14 @@
   </form>
 </div>
 
+{{ productos_data|json_script:"productos-data" }}
 <script>
 const lineas = [];
 let lineaIdx = 0;
 
+const PRODUCTOS = JSON.parse(document.getElementById('productos-data').textContent);
+
+const filtroCat   = document.getElementById('filtro-categoria');
 const selector    = document.getElementById('selector-producto');
 const addCant     = document.getElementById('add-cantidad');
 const addPrecio   = document.getElementById('add-precio');
@@ -215,6 +219,52 @@ function convertir(monto, desde) {
 }
 
 const fotoPreview = document.getElementById('foto-preview');
+
+/* El selector se arma acá y no en el template: con 740 artículos, elegir sin
+   poder recortar por categoría es inusable. */
+function llenarSelector() {
+  const cat = filtroCat.value;
+  const visibles = cat ? PRODUCTOS.filter(p => p.categoria === cat) : PRODUCTOS;
+
+  selector.innerHTML = '';
+  const vacia = document.createElement('option');
+  vacia.value = '';
+  vacia.textContent = visibles.length
+    ? `— Seleccioná un producto (${visibles.length}) —`
+    : '— No hay artículos en esta categoría —';
+  selector.appendChild(vacia);
+
+  // Sin filtro conviene mantener los grupos; filtrado ya son todos de la misma.
+  let grupo = null;
+  let categoriaGrupo = null;
+  visibles.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.codigo} — ${p.nombre}`;
+    opt.dataset.nombre = p.nombre;
+    opt.dataset.precio = p.precio;
+    opt.dataset.moneda = p.moneda;
+    if (cat) {
+      selector.appendChild(opt);
+      return;
+    }
+    if (p.categoria !== categoriaGrupo) {
+      categoriaGrupo = p.categoria;
+      grupo = document.createElement('optgroup');
+      grupo.label = p.categoria || 'Sin clasificar';
+      selector.appendChild(grupo);
+    }
+    grupo.appendChild(opt);
+  });
+}
+
+filtroCat.addEventListener('change', function () {
+  llenarSelector();
+  fotoPreview.classList.add('hidden');
+  selector.focus();
+});
+
+llenarSelector();
 
 selector.addEventListener('change', function() {
   const opt = this.options[this.selectedIndex];

@@ -1,15 +1,18 @@
 from django.urls import path
 from .views import (
-    ConsultaCreateParaClienteView, ConsultaDetailView, ConsultaEditView,
-    ConsultaListView, CotizacionPDFView, CotizacionView, NuevaCotizacionView,
-    ProductoFotoView,
+    ClienteRapidoView, ConsultaCreateParaClienteView, ConsultaDetailView,
+    ConsultaEditView, ConsultaListView, CotizacionPDFView, CotizacionView,
+    NuevaCotizacionView, ProductoFotoView,
 )
 
 app_name = 'consultas'
 
 urlpatterns = [
     path('', ConsultaListView.as_view(), name='list'),
-    # Toda consulta arranca de un cliente: no hay alta sin cliente elegido.
+    # Toda consulta arranca de un cliente: no hay alta sin cliente elegido. El
+    # modal de "Nueva consulta" elige uno existente o carga este mínimo, y
+    # recién entonces se llega a las pantallas de abajo.
+    path('cliente-rapido/', ClienteRapidoView.as_view(), name='cliente_rapido'),
     path('cliente/<int:cliente_pk>/nueva/', ConsultaCreateParaClienteView.as_view(), name='create'),
     path('cliente/<int:cliente_pk>/cotizacion/', NuevaCotizacionView.as_view(), name='nueva_cotizacion'),
     path('<int:pk>/', ConsultaDetailView.as_view(), name='detail'),

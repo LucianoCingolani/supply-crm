@@ -84,6 +84,9 @@ class Cliente(models.Model):
 
     # ── Contacto ───────────────────────────────────────────────────
     telefono = models.CharField(max_length=30, blank=True, verbose_name='Teléfono')
+    # Separado del teléfono porque muchos consultan por WhatsApp desde un número
+    # distinto del fijo que dan para facturar.
+    whatsapp = models.CharField(max_length=30, blank=True, verbose_name='WhatsApp')
     email = models.EmailField(blank=True)
 
     # ── Domicilio ──────────────────────────────────────────────────

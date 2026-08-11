@@ -30,7 +30,7 @@ class ClienteForm(forms.ModelForm):
         model = Cliente
         fields = [
             'razon_social', 'contacto', 'cuit', 'dni',
-            'telefono', 'email',
+            'telefono', 'whatsapp', 'email',
             'domicilio', 'localidad', 'provincia', 'codigo_postal',
             'condicion_fiscal', 'tipo_factura',
             'vendedor',
@@ -42,6 +42,7 @@ class ClienteForm(forms.ModelForm):
             'cuit': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: 30-12345678-9'}),
             'dni': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: 27143554'}),
             'telefono': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: 11 1234-5678'}),
+            'whatsapp': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: 11 1234-5678'}),
             'email': forms.EmailInput(attrs={'class': INPUT_CLASS, 'placeholder': 'contacto@empresa.com'}),
             'domicilio': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Calle y número'}),
             'localidad': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: San Justo'}),
