@@ -175,9 +175,10 @@ class HTMLDelPDFTest(TestCase):
         self.cliente = Cliente.objects.create(razon_social='ACME SRL', vendedor=self.user)
 
     def _html(self, consulta):
+        from consultas import membrete
         return render_to_string('consultas/cotizacion_pdf.html', {
             'consulta': consulta,
-            'totales': consulta.totales(),
+            **membrete.contexto(),
         })
 
     def test_una_cotizacion_en_pesos_no_dice_dolares(self):
@@ -186,34 +187,29 @@ class HTMLDelPDFTest(TestCase):
 
         html = self._html(c)
         self.assertNotIn('u$s', html)
-        self.assertIn('$ 1.000,00', html)
+        self.assertIn('$ 1.000 + IVA', html)
 
     def test_una_cotizacion_en_dolares_lo_dice(self):
         c = consulta_de(self.user, self.cliente, moneda=USD)
         linea(c, '250', USD)
 
-        self.assertIn('u$s 250,00', self._html(c))
+        self.assertIn('u$s 250 + IVA', self._html(c))
 
     def test_imprime_los_montos_ya_convertidos(self):
         c = consulta_de(self.user, self.cliente, moneda=ARS, tipo_cambio=Decimal('1000'))
         linea(c, '10', USD)  # = 10.000 pesos
 
         html = self._html(c)
-        self.assertIn('$ 10.000,00', html)
+        self.assertIn('$ 10.000 + IVA', html)
         self.assertNotIn('u$s', html)
 
-    def test_aclara_el_tipo_de_cambio_usado_cuando_hubo_conversion(self):
-        c = consulta_de(self.user, self.cliente, moneda=ARS, tipo_cambio=Decimal('1350'))
-        linea(c, '1000', ARS)
-        linea(c, '10', USD)
+    def test_conserva_los_centavos_cuando_existen(self):
+        """El modelo escribe "$ 87.500", pero un precio en dólares suele tener
+        centavos y perderlos sería cotizar otro número."""
+        c = consulta_de(self.user, self.cliente, moneda=USD)
+        linea(c, '49.50', USD)
 
-        self.assertIn('1.350,00', self._html(c))
-
-    def test_no_aclara_nada_si_no_hubo_conversion(self):
-        c = consulta_de(self.user, self.cliente, moneda=ARS)
-        linea(c, '1000', ARS)
-
-        self.assertNotIn('convertidos a un tipo de cambio', self._html(c))
+        self.assertIn('u$s 49,50 + IVA', self._html(c))
 
 
 class PantallaCotizacionTest(TestCase):

@@ -55,7 +55,7 @@ class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = ['codigo', 'nombre', 'unidad_medida', 'precio', 'moneda',
-                  'categoria', 'especificaciones']
+                  'categoria', 'colores', 'especificaciones']
         widgets = {
             'codigo': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: SA-01234'}),
             'nombre': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: Guante de nitrilo azul talle L'}),
@@ -65,6 +65,9 @@ class ProductoForm(forms.ModelForm):
                 'class': INPUT_CLASS,
                 'placeholder': 'Ej: Protección de manos',
                 'list': 'categorias-existentes',
+            }),
+            'colores': forms.TextInput(attrs={
+                'class': INPUT_CLASS, 'placeholder': 'Ej: A elección',
             }),
             'especificaciones': forms.Textarea(attrs={
                 'class': INPUT_CLASS + ' font-mono', 'rows': 5,

@@ -12,3 +12,17 @@ def precio_ar(value):
         return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
     except (ValueError, TypeError):
         return value
+
+
+@register.filter
+def precio_cotizacion(value):
+    """Como precio_ar pero sin centavos cuando son cero.
+
+    El modelo de cotización escribe "$ 87.500 + IVA", no "87.500,00". Los
+    centavos igual quedan cuando existen, que es el caso de los precios en
+    dólares ("u$s 49,50").
+    """
+    texto = precio_ar(value)
+    if isinstance(texto, str) and texto.endswith(',00'):
+        return texto[:-3]
+    return texto

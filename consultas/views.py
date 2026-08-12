@@ -12,6 +12,7 @@ from django.views import View
 
 from clientes.models import Cliente, normalizar_cuit
 from productos.models import ARS, MONEDAS, Producto
+from . import membrete
 from .forms import ConsultaClienteForm, FiltroConsultaForm, SeguimientoForm
 from .models import Consulta, LineaCotizacion
 
@@ -215,10 +216,10 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'lineas__producto')
 
-        totales = consulta.totales()
-        # Sin tipo de cambio no hay total posible, y un PDF con un número mal
-        # sumado es peor que no tener PDF: se lo manda al cliente.
-        if totales is None:
+        # El PDF ya no imprime totales, pero sí el precio de cada línea llevado
+        # a la moneda de la cotización. Sin tipo de cambio esa conversión no se
+        # puede hacer, y un precio en blanco o mal convertido va al cliente.
+        if consulta.totales() is None:
             messages.error(
                 request,
                 'La cotización mezcla pesos y dólares. Cargá el tipo de cambio '
@@ -228,8 +229,8 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
 
         html = render_to_string('consultas/cotizacion_pdf.html', {
             'consulta': consulta,
-            'totales': totales,
             'request': request,
+            **membrete.contexto(),
         })
         import weasyprint
         pdf_bytes = weasyprint.HTML(string=html).write_pdf()

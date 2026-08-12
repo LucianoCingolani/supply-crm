@@ -62,6 +62,11 @@ class Producto(models.Model):
         verbose_name='Especificaciones técnicas',
         help_text='Bullet points separados por salto de línea',
     )
+    colores = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Colores',
+        help_text='Sale en la cotización como "Colores: …". Vacío, no se imprime.',
+    )
     foto = models.BinaryField(blank=True, null=True)
     foto_tipo = models.CharField(max_length=30, blank=True)  # 'image/jpeg' | 'image/png'
     activo = models.BooleanField(default=True)
