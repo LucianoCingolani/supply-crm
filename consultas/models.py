@@ -260,6 +260,20 @@ class LineaCotizacion(models.Model):
         return simbolo(self.moneda)
 
     @property
+    def descripcion_del_articulo(self):
+        """La descripción del catálogo, solo si difiere de la de la línea.
+
+        La línea nace con la descripción copiada del artículo, pero el vendedor
+        puede ajustarla al armar la cotización. Si la ajustó, la descripción del
+        artículo tiene que salir igual en el PDF: es la que lo identifica. Si son
+        la misma, devuelve vacío para no imprimirla dos veces.
+        """
+        if not self.producto:
+            return ''
+        catalogo = (self.producto.nombre or '').strip()
+        return catalogo if catalogo != (self.descripcion or '').strip() else ''
+
+    @property
     def es_de_otra_moneda(self):
         return self.moneda != self.consulta.moneda
 

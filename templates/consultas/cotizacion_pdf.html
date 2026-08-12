@@ -172,6 +172,11 @@ p { margin: 3pt 0; }
 
   <p><span class="etiqueta">{{ linea.descripcion }}:</span></p>
 
+  {# La del catálogo, cuando el vendedor ajustó la de la línea #}
+  {% if linea.descripcion_del_articulo %}
+  <p>{{ linea.descripcion_del_articulo }}</p>
+  {% endif %}
+
   {% if linea.producto.especificaciones %}
   {% for spec in linea.producto.especificaciones.splitlines %}
   {% if spec.strip %}<p>{{ spec }}</p>{% endif %}

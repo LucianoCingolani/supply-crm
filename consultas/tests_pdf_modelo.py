@@ -111,6 +111,29 @@ class BloqueDeProductoTest(BasePDFTest):
         self.linea(self.producto(), descripcion='Recipiente 120L color especial')
         self.assertIn('Recipiente 120L color especial:', self.html())
 
+    def test_la_descripcion_del_articulo_sale_siempre(self):
+        """Si el vendedor ajustó la de la línea, la del catálogo va igual: es la
+        que identifica al artículo."""
+        self.linea(self.producto(), descripcion='Recipiente 120L color especial')
+
+        html = self.html()
+        self.assertIn('Recipiente 120L color especial:', html)
+        self.assertIn('Recipiente de Residuos de 120 litros', html)
+
+    def test_no_la_repite_cuando_es_la_misma(self):
+        self.linea(self.producto())
+        self.assertEqual(
+            self.html().count('Recipiente de Residuos de 120 litros'), 1)
+
+    def test_ignora_diferencias_de_espacios(self):
+        self.linea(self.producto(), descripcion='  Recipiente de Residuos de 120 litros  ')
+        self.assertEqual(
+            self.html().count('Recipiente de Residuos de 120 litros'), 1)
+
+    def test_una_linea_sin_articulo_no_inventa_descripcion(self):
+        linea = self.linea(descripcion='Servicio de instalación')
+        self.assertEqual(linea.descripcion_del_articulo, '')
+
     def test_imprime_cada_especificacion_en_su_linea(self):
         self.linea(self.producto())
         html = self.html()
