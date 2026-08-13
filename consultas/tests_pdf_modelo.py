@@ -169,6 +169,18 @@ class BloqueDeProductoTest(BasePDFTest):
         self.linea(self.producto(foto=PNG_1PX, foto_tipo='image/png'))
         self.assertIn('data:image/png;base64,', self.html())
 
+    def test_deja_un_espacio_entre_el_texto_y_la_foto(self):
+        """El modelo tiene un párrafo vacío ahí, y pegada al precio queda sucia."""
+        self.linea(self.producto(foto=PNG_1PX, foto_tipo='image/png'))
+        self.assertRegex(self.html(),
+                         r'class="espacio"></div>\s*<div class="foto"')
+
+    def test_sin_foto_no_deja_el_espacio_colgando(self):
+        self.linea(self.producto())
+        html = self.html()
+        self.assertNotIn('class="foto"', html)
+        self.assertNotRegex(html, r'class="espacio"></div>\s*<div class="foto"')
+
     def test_sin_foto_no_deja_un_hueco(self):
         self.linea(self.producto())
         self.assertNotIn('Sin imagen', self.html())

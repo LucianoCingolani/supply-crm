@@ -193,6 +193,8 @@ p { margin: 3pt 0; }
      {{ consulta.simbolo_moneda }} {{ linea.precio_convertido|precio_cotizacion }} + IVA</p>
 
   {% if linea.producto.foto_data_uri %}
+  {# El modelo deja un párrafo vacío entre el precio y la imagen #}
+  <div class="espacio"></div>
   <div class="foto">
     <img src="{{ linea.producto.foto_data_uri }}" alt="{{ linea.descripcion }}">
   </div>
