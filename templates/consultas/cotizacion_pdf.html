@@ -115,8 +115,10 @@ body {
 p { margin: 3pt 0; }
 .espacio { height: 10.5pt; }
 
+/* Aire propio y no el espaciador genérico: pegada al precio la foto se lee
+   como parte de esa línea, y acá es donde hay que poder ajustarlo. */
 .foto {
-  margin-top: 3pt;
+  margin-top: 1.2cm;
 }
 .foto img {
   max-width: 11cm;
@@ -193,8 +195,6 @@ p { margin: 3pt 0; }
      {{ consulta.simbolo_moneda }} {{ linea.precio_convertido|precio_cotizacion }} + IVA</p>
 
   {% if linea.producto.foto_data_uri %}
-  {# El modelo deja un párrafo vacío entre el precio y la imagen #}
-  <div class="espacio"></div>
   <div class="foto">
     <img src="{{ linea.producto.foto_data_uri }}" alt="{{ linea.descripcion }}">
   </div>

@@ -6,6 +6,7 @@ condiciones textuales y qué datos salen y cuáles no.
 """
 
 import datetime
+import re
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -169,17 +170,18 @@ class BloqueDeProductoTest(BasePDFTest):
         self.linea(self.producto(foto=PNG_1PX, foto_tipo='image/png'))
         self.assertIn('data:image/png;base64,', self.html())
 
-    def test_deja_un_espacio_entre_el_texto_y_la_foto(self):
-        """El modelo tiene un párrafo vacío ahí, y pegada al precio queda sucia."""
+    def test_deja_aire_entre_el_precio_y_la_foto(self):
+        """Pegada al precio se lee como parte de esa línea."""
         self.linea(self.producto(foto=PNG_1PX, foto_tipo='image/png'))
-        self.assertRegex(self.html(),
-                         r'class="espacio"></div>\s*<div class="foto"')
+
+        margen = re.search(r'\.foto\s*\{[^}]*margin-top:\s*([\d.]+)cm', self.html())
+        self.assertIsNotNone(margen, 'la foto tiene que separarse con un margen en cm')
+        self.assertGreaterEqual(float(margen.group(1)), 1.0)
 
     def test_sin_foto_no_deja_el_espacio_colgando(self):
+        """El aire va en el bloque de la foto, así que sin foto no queda hueco."""
         self.linea(self.producto())
-        html = self.html()
-        self.assertNotIn('class="foto"', html)
-        self.assertNotRegex(html, r'class="espacio"></div>\s*<div class="foto"')
+        self.assertNotIn('class="foto"', self.html())
 
     def test_sin_foto_no_deja_un_hueco(self):
         self.linea(self.producto())
