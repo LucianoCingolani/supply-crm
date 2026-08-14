@@ -24,20 +24,29 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     GERENTE = 'gerente'
     EMPLEADO = 'empleado'
     TESORERIA = 'tesoreria'
+    COACH = 'coach'
 
     ROLE_CHOICES = [
         (ADMIN, 'Admin'),
         (GERENTE, 'Gerente'),
         (EMPLEADO, 'Empleado'),
         (TESORERIA, 'Tesorería'),
+        (COACH, 'Coach de ventas'),
     ]
 
-    # Roles que ven los datos de toda la empresa, no solo los propios
-    ROLES_VISION_TOTAL = [ADMIN, GERENTE]
+    # Roles que ven los datos de toda la empresa, no solo los propios.
+    # El Coach entra acá: su trabajo es mirar cómo va cada vendedor.
+    ROLES_VISION_TOTAL = [ADMIN, GERENTE, COACH]
 
-    # Tesorería no trabaja el circuito comercial: entra a mantener los precios
-    # del catálogo y nada más.
-    ROLES_DE_VENTAS = [ADMIN, GERENTE, EMPLEADO]
+    # Ver todo y poder todo son cosas distintas, y el Coach es el rol que las
+    # separa: ve la empresa entera y no administra nada.
+    ROLES_DE_ADMINISTRACION = [ADMIN, GERENTE]
+
+    # Quién entra al circuito comercial, y quién puede escribir en él. Tesorería
+    # no entra; el Coach entra pero solo mira.
+    ROLES_CON_ACCESO_A_VENTAS = [ADMIN, GERENTE, EMPLEADO, COACH]
+    ROLES_QUE_CARGAN_VENTAS = [ADMIN, GERENTE, EMPLEADO]
+
     ROLES_QUE_PONEN_PRECIOS = [ADMIN, GERENTE, TESORERIA]
 
     email = models.EmailField(unique=True)
@@ -93,6 +102,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def is_tesoreria(self):
         return self.role == self.TESORERIA
 
+    @property
+    def is_coach(self):
+        return self.role == self.COACH
+
     # ── Capacidades ────────────────────────────────────────────────
     # Lo que consultan views, mixins y templates. Para cambiar qué puede
     # hacer un rol se toca únicamente acá.
@@ -107,22 +120,22 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     @property
     def puede_gestionar_usuarios(self):
-        return self.role in self.ROLES_VISION_TOTAL
+        return self.role in self.ROLES_DE_ADMINISTRACION
 
     @property
     def puede_asignar_clientes(self):
         """Repartir la cartera es del Gerente: define qué cliente trabaja cada uno."""
-        return self.role in self.ROLES_VISION_TOTAL
+        return self.role in self.ROLES_DE_ADMINISTRACION
 
     @property
     def puede_borrar_clientes(self):
         """Borrar un cliente rompe vínculos y se lleva su seguimiento: no es
         algo que deba poder hacer quien solo trabaja su cartera."""
-        return self.role in self.ROLES_VISION_TOTAL
+        return self.role in self.ROLES_DE_ADMINISTRACION
 
     @property
     def puede_editar_catalogo(self):
-        return self.role in self.ROLES_VISION_TOTAL
+        return self.role in self.ROLES_DE_ADMINISTRACION
 
     @property
     def puede_ver_reportes(self):
@@ -136,7 +149,18 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     @property
     def puede_ver_ventas(self):
         """El circuito comercial: consultas, clientes y la portada con sus números."""
-        return self.role in self.ROLES_DE_VENTAS
+        return self.role in self.ROLES_CON_ACCESO_A_VENTAS
+
+    @property
+    def puede_cargar_ventas(self):
+        """Escribir en el circuito comercial: cargar clientes y consultas,
+        cotizar, registrar seguimientos. El Coach mira y no toca."""
+        return self.role in self.ROLES_QUE_CARGAN_VENTAS
+
+    @property
+    def lleva_cartera(self):
+        """Si se le pueden asignar clientes. Los roles que no venden no."""
+        return self.puede_cargar_ventas
 
     @property
     def puede_editar_precios(self):

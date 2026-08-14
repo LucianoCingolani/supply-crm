@@ -9,10 +9,12 @@
         <h1 class="text-2xl font-bold text-gray-900">{{ cliente.razon_social }}</h1>
     </div>
     <div class="flex items-center gap-2">
+        {% if user.puede_cargar_ventas %}
         <a href="{% url 'clientes:edit' cliente.pk %}"
            class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
             Editar cliente
         </a>
+        {% endif %}
         {% if user.puede_borrar_clientes %}
         <a href="{% url 'clientes:borrar' cliente.pk %}"
            class="px-4 py-2 bg-white border border-gray-300 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 hover:border-red-200">
@@ -160,7 +162,8 @@
 
         <!-- Seguimiento del cliente: una sola línea de tiempo -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h2 class="text-sm font-semibold text-gray-700 mb-3">Registrar seguimiento</h2>
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">Seguimiento</h2>
+            {% if user.puede_cargar_ventas %}
             <form method="post">
                 {% csrf_token %}
                 {{ seg_form.nota }}
@@ -172,6 +175,7 @@
                     Registrar
                 </button>
             </form>
+            {% endif %}
 
             {% if seguimientos %}
             <div class="mt-6 space-y-3">
@@ -201,6 +205,7 @@
                     <span class="ml-2 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-600">{{ consultas.count }}</span>
                 </h2>
                 <div class="flex gap-2">
+                    {% if user.puede_cargar_ventas %}
                     <a href="{% url 'consultas:nueva_cotizacion' cliente.pk %}"
                        class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">
                         Nueva cotización
@@ -209,6 +214,7 @@
                        class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
                         + Nueva consulta
                     </a>
+                    {% endif %}
                 </div>
             </div>
             <table class="min-w-full divide-y divide-gray-100 text-sm">

@@ -68,7 +68,8 @@
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Registrar seguimiento</h2>
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Seguimiento</h2>
+            {% if user.puede_cargar_ventas %}
             <form method="post">
                 {% csrf_token %}
                 {{ seg_form.nota }}
@@ -76,6 +77,7 @@
                     Registrar
                 </button>
             </form>
+            {% endif %}
 
             {% if consulta.logs.all %}
             <div class="mt-6 space-y-3">

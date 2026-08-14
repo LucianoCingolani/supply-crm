@@ -81,12 +81,14 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-3 text-right">
+                            {% if user.puede_cargar_ventas %}
                             <form method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="linea_id" value="{{ linea.pk }}">
                                 <button type="submit" class="text-red-400 hover:text-red-600 text-xs">Quitar</button>
                             </form>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -98,6 +100,7 @@
         </div>
 
         <!-- Agregar línea -->
+        {% if user.puede_cargar_ventas %}
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Agregar producto</h2>
             <form method="post" id="form-add" class="space-y-4">
@@ -162,6 +165,7 @@
                 </div>
             </form>
         </div>
+        {% endif %}
     </div>
 
     <!-- Totales -->
@@ -193,6 +197,7 @@
         </div>
 
         <!-- Moneda de la cotización -->
+        {% if user.puede_cargar_ventas %}
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Moneda</h2>
             <form method="post" class="space-y-3">
@@ -220,6 +225,7 @@
                 </button>
             </form>
         </div>
+        {% endif %}
 
         <div class="bg-gray-50 rounded-xl border border-gray-100 p-4 text-xs text-gray-500 space-y-1">
             <p><strong>Nº cotización:</strong> {{ consulta.numero_cotizacion|default:"—" }}</p>
@@ -229,6 +235,7 @@
     </div>
 </div>
 
+{% if user.puede_cargar_ventas %}
 <script>
 const selector = document.getElementById('selector-producto');
 const descripcionInput = document.getElementById('descripcion');
@@ -267,4 +274,5 @@ cantidadInput.addEventListener('input', updatePreview);
 precioInput.addEventListener('input', updatePreview);
 monedaInput.addEventListener('change', updatePreview);
 </script>
+{% endif %}
 {% endblock %}

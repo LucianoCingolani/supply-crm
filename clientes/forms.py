@@ -20,7 +20,9 @@ class ClienteForm(forms.ModelForm):
         if editor is not None and not editor.puede_asignar_clientes:
             del self.fields['vendedor']
             return
-        candidatos = User.objects.filter(is_active=True)
+        # Solo roles que llevan cartera: el Coach y Tesorería no atienden clientes.
+        candidatos = User.objects.filter(
+            is_active=True, role__in=User.ROLES_QUE_CARGAN_VENTAS)
         if editor is not None and not editor.puede_administrar_admins:
             candidatos = candidatos.exclude(role=User.ADMIN)
         self.fields['vendedor'].queryset = candidatos.order_by('last_name', 'first_name')

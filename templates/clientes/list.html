@@ -13,10 +13,12 @@
             {% endif %}
         </p>
     </div>
+    {% if user.puede_cargar_ventas %}
     <a href="{% url 'clientes:create' %}"
        class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
         + Nuevo cliente
     </a>
+    {% endif %}
 </div>
 
 <form method="get" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">

@@ -15,6 +15,19 @@ from .forms import ClienteForm
 from .models import Cliente, normalizar_cuit
 
 
+def candidatos_a_vendedor(editor):
+    """A quién se le puede asignar un cliente.
+
+    Solo roles que llevan cartera: asignarle uno al Coach o a Tesorería sería
+    sacarlo del circuito. Y un Gerente no puede repartir hacia un Admin.
+    """
+    User = get_user_model()
+    qs = User.objects.filter(is_active=True, role__in=User.ROLES_QUE_CARGAN_VENTAS)
+    if not editor.puede_administrar_admins:
+        qs = qs.exclude(role=User.ADMIN)
+    return qs
+
+
 class ClienteAccesoMixin(VentasRequeridasMixin):
     """Da acceso solo a los clientes visibles para el usuario."""
 
@@ -60,10 +73,7 @@ class ClienteListView(ClienteAccesoMixin, View):
     def _vendedores(self, user):
         if not user.puede_asignar_clientes:
             return None
-        qs = get_user_model().objects.filter(is_active=True)
-        if not user.puede_administrar_admins:
-            qs = qs.exclude(role=get_user_model().ADMIN)
-        return qs.order_by('last_name', 'first_name')
+        return candidatos_a_vendedor(user).order_by('last_name', 'first_name')
 
     def _filtrar_por_vendedor(self, qs, vendedor, user):
         if not user.puede_asignar_clientes:
@@ -154,10 +164,12 @@ class ClienteDetailView(ClienteAccesoMixin, View):
 class ClienteCreateView(VentasRequeridasMixin, View):
     """Alta de un cliente que consulta por primera vez.
 
-    Cualquiera puede cargarlo: el que atiende la consulta es el que tiene los
-    datos. Avisa si el CUIT ya está en la base, que es la forma en que este
-    listado de 3900 clientes se llena de duplicados.
+    Cualquiera que venda puede cargarlo: el que atiende la consulta es el que
+    tiene los datos. Avisa si el CUIT ya está en la base, que es la forma en que
+    este listado de 3900 clientes se llena de duplicados.
     """
+
+    exige_carga = True
 
     def get(self, request):
         return self.render_form(request, ClienteForm(
@@ -220,6 +232,8 @@ class ClienteCreateView(VentasRequeridasMixin, View):
 
 
 class ClienteEditView(ClienteAccesoMixin, View):
+    exige_carga = True
+
     def get(self, request, pk):
         cliente = self.get_cliente(pk)
         return self.render_form(request, cliente,
@@ -306,10 +320,7 @@ class ClienteAsignarView(CapacidadRequeridaMixin, View):
         if not crudo.isdigit():
             return False, ''
 
-        candidatos = get_user_model().objects.filter(is_active=True)
-        if not request.user.puede_administrar_admins:
-            candidatos = candidatos.exclude(role=get_user_model().ADMIN)
-        vendedor = candidatos.filter(pk=crudo).first()
+        vendedor = candidatos_a_vendedor(request.user).filter(pk=crudo).first()
         if not vendedor:
             return False, ''
         return vendedor, vendedor.get_full_name() or vendedor.email

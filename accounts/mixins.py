@@ -28,8 +28,24 @@ class CapacidadRequeridaMixin(LoginRequiredMixin):
 class VentasRequeridasMixin(CapacidadRequeridaMixin):
     """Para todo lo del circuito comercial: consultas y clientes.
 
-    Existe para que sumar un rol que no vende no obligue a anotar la capacidad
-    en cada vista de esas dos apps.
+    Entrar exige `puede_ver_ventas`; escribir exige además `puede_cargar_ventas`.
+    Esa segunda mitad es lo que hace que el Coach pueda seguir el trabajo del
+    equipo sin poder modificarlo, sin tener que duplicar cada vista en una
+    versión de lectura.
     """
 
     capacidad = 'puede_ver_ventas'
+
+    # Las vistas que existen para escribir lo declaran: ahí el formulario no
+    # tiene sentido si el rol no puede guardarlo, así que se corta también el GET.
+    exige_carga = False
+
+    METODOS_DE_LECTURA = frozenset(['GET', 'HEAD', 'OPTIONS'])
+
+    def dispatch(self, request, *args, **kwargs):
+        escribe = self.exige_carga or request.method not in self.METODOS_DE_LECTURA
+        if escribe and request.user.is_authenticated and not request.user.puede_cargar_ventas:
+            messages.error(
+                request, 'Tu rol puede consultar esta información, no modificarla.')
+            return redirect(request.user.pagina_inicial)
+        return super().dispatch(request, *args, **kwargs)

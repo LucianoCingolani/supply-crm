@@ -136,6 +136,8 @@ class ConsultaDetailView(ConsultaAccesoMixin, View):
 class ConsultaEditView(ConsultaAccesoMixin, View):
     """Edita los datos de la consulta. El cliente no se toca acá: se edita en su ficha."""
 
+    exige_carga = True
+
     def get(self, request, pk):
         consulta = self.get_consulta(pk)
         return render(request, 'consultas/form.html', {
@@ -266,6 +268,8 @@ def copiar_datos_del_cliente(consulta, cliente):
 class ConsultaCreateParaClienteView(ClienteScopeMixin, View):
     """Registra una consulta sobre un cliente ya elegido."""
 
+    exige_carga = True
+
     def get(self, request, cliente_pk):
         import datetime
         cliente = self.get_cliente(cliente_pk)
@@ -298,6 +302,8 @@ class ClienteRapidoView(VentasRequeridasMixin, View):
     completa después. Termina en la pantalla de productos de ese cliente, que
     es a dónde iba el que apretó el botón.
     """
+
+    exige_carga = True
 
     CAMPOS = ['cuit', 'razon_social', 'contacto', 'telefono', 'whatsapp', 'email']
 
@@ -343,6 +349,8 @@ class ClienteRapidoView(VentasRequeridasMixin, View):
 
 class NuevaCotizacionView(ClienteScopeMixin, View):
     """Cotiza a un cliente de la cartera: arma la Consulta en el fondo."""
+
+    exige_carga = True
 
     def _render(self, request, cliente, fecha_str=None, post=None):
         import datetime
