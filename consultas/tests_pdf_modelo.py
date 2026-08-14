@@ -271,26 +271,34 @@ class TipografiaTest(BasePDFTest):
         self.assertNotIn('text-align: justify', self.html())
 
 
-class MembreteRepetidoTest(BasePDFTest):
-    """El membrete y el pie van en los márgenes de @page, no en el body.
+class MembreteSoloEnLaPrimeraTest(BasePDFTest):
+    """El membrete va una sola vez; el pie sí se repite.
 
-    Con padding en el body el espacio se reserva solo en la primera hoja: de la
-    segunda en adelante el contenido se mete abajo del membrete y desaparece.
-    Pasó de verdad — el segundo producto quedó invisible y las condiciones
-    cortadas — así que esto queda fijado.
+    La diferencia está en el mecanismo: `position: fixed` es lo que hace que
+    WeasyPrint repita un elemento en cada hoja. El membrete no puede usarlo o
+    volvería a aparecer en todas.
     """
 
-    def test_el_membrete_se_corre_al_margen_superior(self):
-        html = self.html()
-        self.assertRegex(html, r'\.membrete\s*\{[^}]*position:\s*fixed')
-        self.assertRegex(html, r'\.membrete\s*\{[^}]*top:\s*-\d')
+    def test_el_membrete_no_es_un_elemento_fijo(self):
+        self.assertNotRegex(self.html(), r'\.membrete\s*\{[^}]*position:\s*fixed')
 
-    def test_el_pie_se_corre_al_margen_inferior(self):
+    def test_la_banda_del_membrete_se_reserva_solo_en_la_primera_hoja(self):
+        html = self.html()
+        self.assertRegex(html, r'@page\s*:first\s*\{[^}]*margin-top')
+
+    def test_las_hojas_de_continuacion_despegan_el_texto_del_borde(self):
+        """Sin membrete arriba, el margen del modelo (0,5cm) deja el texto al filo."""
+        margen = re.search(r'@page\s*\{[^}]*margin:\s*([\d.]+)cm', self.html())
+        self.assertIsNotNone(margen)
+        self.assertGreaterEqual(float(margen.group(1)), 1.0)
+
+    def test_el_pie_sigue_repitiendose_en_cada_hoja(self):
         html = self.html()
         self.assertRegex(html, r'\.pie\s*\{[^}]*position:\s*fixed')
         self.assertRegex(html, r'\.pie\s*\{[^}]*bottom:\s*-\d')
 
-    def test_el_body_no_reserva_el_espacio_con_padding(self):
+    def test_el_body_no_reserva_espacio_con_padding(self):
+        """Reservarlo así solo corre el contenido de la primera hoja."""
         html = self.html()
         self.assertNotRegex(html, r'body\s*\{[^}]*padding-top:\s*\d')
         self.assertNotRegex(html, r'body\s*\{[^}]*padding-bottom:\s*\d')

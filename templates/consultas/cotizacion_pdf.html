@@ -21,12 +21,11 @@
 
 @page {
   size: A4;
-  /* Los márgenes reservan las bandas donde viven el membrete y el pie.
-     Arriba: 0,5cm (margen del modelo) + 5,55cm de membrete + aire.
-     Abajo: las tres tiras más el número de página.
-     El espacio NO puede darse con padding en el body: eso corre el contenido
-     solo en la primera hoja y en las siguientes se mete abajo del membrete. */
-  margin: 6.15cm 1.27cm 2.3cm 1.27cm;
+  /* Hojas de continuación: sin membrete, así que el margen de arriba solo tiene
+     que despegar el texto del borde. El de abajo aloja el pie, que sí se repite.
+     Ojo: reservar espacio con padding en el body no sirve — corre el contenido
+     únicamente en la primera hoja. */
+  margin: 1.8cm 1.27cm 2.3cm 1.27cm;
 
   @bottom-right {
     content: "Página " counter(page);
@@ -35,6 +34,11 @@
     color: #000;
     vertical-align: bottom;
   }
+}
+
+/* El membrete va solo en la primera hoja, y arranca donde lo pone el modelo. */
+@page :first {
+  margin-top: 0.5cm;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,14 +51,10 @@ body {
 }
 
 /* ══════════════════════════════════════════════════
-   MEMBRETE — fijo, se repite en cada hoja.
-   Se corre al margen superior con un top negativo.
+   MEMBRETE — contenido normal al tope del documento, no un elemento fijo:
+   así aparece una sola vez, en la primera hoja.
 ══════════════════════════════════════════════════ */
 .membrete {
-  position: fixed;
-  top: -5.65cm;
-  left: 0;
-  right: 0;
   text-align: center;
 }
 .membrete img {
@@ -147,7 +147,7 @@ p { margin: 3pt 0; }
 </head>
 <body>
 
-<!-- Membrete: fijo, en todas las hojas -->
+<!-- Membrete: en el flujo, así sale una sola vez en la hoja 1 -->
 <div class="membrete">
   {% if img_membrete %}<img src="{{ img_membrete }}" alt="Supply Argentina">{% endif %}
 </div>
