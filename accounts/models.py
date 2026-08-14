@@ -22,32 +22,42 @@ class CustomUserManager(BaseUserManager):
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     ADMIN = 'admin'
     GERENTE = 'gerente'
+    JEFE_VENTAS = 'jefe_ventas'
     EMPLEADO = 'empleado'
     TESORERIA = 'tesoreria'
     COACH = 'coach'
 
+    # En orden de alcance: así se lee el desplegable al dar de alta a alguien.
     ROLE_CHOICES = [
         (ADMIN, 'Admin'),
         (GERENTE, 'Gerente'),
+        (JEFE_VENTAS, 'Jefe de ventas'),
         (EMPLEADO, 'Empleado'),
         (TESORERIA, 'Tesorería'),
         (COACH, 'Coach de ventas'),
     ]
 
-    # Roles que ven los datos de toda la empresa, no solo los propios.
-    # El Coach entra acá: su trabajo es mirar cómo va cada vendedor.
-    ROLES_VISION_TOTAL = [ADMIN, GERENTE, COACH]
+    # Las capacidades no se agrupan en una sola lista a propósito. Empezaron
+    # así y cada rol nuevo tuvo que partirla: el Coach separó ver de poder, y el
+    # Jefe de ventas separó dirigir de administrar. Son cosas distintas.
 
-    # Ver todo y poder todo son cosas distintas, y el Coach es el rol que las
-    # separa: ve la empresa entera y no administra nada.
+    # Ver los datos de toda la empresa, no solo los propios.
+    ROLES_VISION_TOTAL = [ADMIN, GERENTE, JEFE_VENTAS, COACH]
+
+    # Las dos llaves que no se reparten: gestionar usuarios abre cambiar
+    # contraseñas ajenas, y borrar un cliente se lleva su seguimiento.
     ROLES_DE_ADMINISTRACION = [ADMIN, GERENTE]
+
+    # Repartir la cartera define qué ve cada vendedor: es de quien dirige.
+    ROLES_QUE_REPARTEN_CARTERA = [ADMIN, GERENTE, JEFE_VENTAS]
+
+    ROLES_QUE_EDITAN_CATALOGO = [ADMIN, GERENTE, JEFE_VENTAS]
+    ROLES_QUE_PONEN_PRECIOS = [ADMIN, GERENTE, JEFE_VENTAS, TESORERIA]
 
     # Quién entra al circuito comercial, y quién puede escribir en él. Tesorería
     # no entra; el Coach entra pero solo mira.
-    ROLES_CON_ACCESO_A_VENTAS = [ADMIN, GERENTE, EMPLEADO, COACH]
-    ROLES_QUE_CARGAN_VENTAS = [ADMIN, GERENTE, EMPLEADO]
-
-    ROLES_QUE_PONEN_PRECIOS = [ADMIN, GERENTE, TESORERIA]
+    ROLES_CON_ACCESO_A_VENTAS = [ADMIN, GERENTE, JEFE_VENTAS, EMPLEADO, COACH]
+    ROLES_QUE_CARGAN_VENTAS = [ADMIN, GERENTE, JEFE_VENTAS, EMPLEADO]
 
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150)
@@ -99,6 +109,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.role == self.EMPLEADO
 
     @property
+    def is_jefe_ventas(self):
+        return self.role == self.JEFE_VENTAS
+
+    @property
     def is_tesoreria(self):
         return self.role == self.TESORERIA
 
@@ -124,8 +138,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     @property
     def puede_asignar_clientes(self):
-        """Repartir la cartera es del Gerente: define qué cliente trabaja cada uno."""
-        return self.role in self.ROLES_DE_ADMINISTRACION
+        """Define qué cliente trabaja cada uno, así que es de quien dirige el
+        equipo: Gerente y Jefe de ventas."""
+        return self.role in self.ROLES_QUE_REPARTEN_CARTERA
 
     @property
     def puede_borrar_clientes(self):
@@ -135,7 +150,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     @property
     def puede_editar_catalogo(self):
-        return self.role in self.ROLES_DE_ADMINISTRACION
+        return self.role in self.ROLES_QUE_EDITAN_CATALOGO
 
     @property
     def puede_ver_reportes(self):
