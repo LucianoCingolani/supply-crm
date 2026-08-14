@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.views import View
 
+from accounts.mixins import VentasRequeridasMixin
 from clientes.models import Cliente, normalizar_cuit
 from productos.models import ARS, MONEDAS, Producto
 from . import membrete
@@ -59,7 +60,7 @@ def productos_para_selector(productos):
     ]
 
 
-class ConsultaAccesoMixin(LoginRequiredMixin):
+class ConsultaAccesoMixin(VentasRequeridasMixin):
     """Da acceso solo a las consultas visibles para el usuario."""
 
     def get_consultas(self):
@@ -241,7 +242,7 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
         return response
 
 
-class ClienteScopeMixin(LoginRequiredMixin):
+class ClienteScopeMixin(VentasRequeridasMixin):
     """Vistas que arrancan de un cliente de la cartera del usuario."""
 
     def get_cliente(self, pk):
@@ -290,7 +291,7 @@ class ConsultaCreateParaClienteView(ClienteScopeMixin, View):
         })
 
 
-class ClienteRapidoView(LoginRequiredMixin, View):
+class ClienteRapidoView(VentasRequeridasMixin, View):
     """Alta mínima de cliente desde el modal de "Nueva consulta".
 
     Solo lo necesario para arrancar la consulta; el resto de la ficha se

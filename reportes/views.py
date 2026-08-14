@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
@@ -31,6 +31,11 @@ class DashboardView(LoginRequiredMixin, View):
     MESES_EVOLUCION = 6
 
     def get(self, request):
+        # Tesorería no tiene nada que hacer acá: todo lo que muestra son
+        # consultas, y de esas no ve ninguna.
+        if not request.user.puede_ver_ventas:
+            return redirect(request.user.pagina_inicial)
+
         hoy = timezone.localdate()
         qs = Consulta.objects.visibles_para(request.user)
 

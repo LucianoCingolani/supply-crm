@@ -8,14 +8,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 
-from accounts.mixins import CapacidadRequeridaMixin
+from accounts.mixins import CapacidadRequeridaMixin, VentasRequeridasMixin
 from consultas.forms import SeguimientoForm
 from consultas.models import Consulta
 from .forms import ClienteForm
 from .models import Cliente, normalizar_cuit
 
 
-class ClienteAccesoMixin(LoginRequiredMixin):
+class ClienteAccesoMixin(VentasRequeridasMixin):
     """Da acceso solo a los clientes visibles para el usuario."""
 
     def get_clientes(self):
@@ -151,7 +151,7 @@ class ClienteDetailView(ClienteAccesoMixin, View):
                       self.contexto(request, cliente, seg_form=form))
 
 
-class ClienteCreateView(LoginRequiredMixin, View):
+class ClienteCreateView(VentasRequeridasMixin, View):
     """Alta de un cliente que consulta por primera vez.
 
     Cualquiera puede cargarlo: el que atiende la consulta es el que tiene los

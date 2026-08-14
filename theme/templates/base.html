@@ -19,10 +19,15 @@
                 <div class="flex items-center">
                     <span class="text-xl font-bold text-blue-600">Supply Argentina</span>
                     <div class="ml-10 flex space-x-4">
+                        {% if user.puede_ver_ventas %}
                         <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Dashboard</a>
                         <a href="{% url 'consultas:list' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Consultas</a>
                         <a href="{% url 'clientes:list' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Clientes</a>
+                        {% endif %}
                         <a href="{% url 'productos:catalogo' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Catálogo</a>
+                        {% if user.puede_editar_precios %}
+                        <a href="{% url 'productos:precios' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Precios</a>
+                        {% endif %}
                         {% if user.puede_ver_reportes %}
                         <a href="{% url 'reportes:equipo' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Equipo</a>
                         {% endif %}

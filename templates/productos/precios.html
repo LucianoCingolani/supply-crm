@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Precios - Supply Argentina{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Lista de precios</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      {% if pagina %}{{ pagina.paginator.count }} artículo{{ pagina.paginator.count|pluralize }}{% endif %}
+      {% if categoria_activa %} &middot; {{ categoria_activa }}{% endif %}
+      {% if q %} &middot; "{{ q }}"{% endif %}
+    </p>
+  </div>
+</div>
+
+<form method="get" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
+  <div class="flex flex-wrap gap-3">
+    <input type="text" name="q" value="{{ q }}"
+           placeholder="Buscar por código o descripción…"
+           class="flex-1 min-w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <select name="categoria"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="">Todas las categorías</option>
+      {% for categoria in categorias %}
+      <option value="{{ categoria }}" {% if categoria_activa == categoria %}selected{% endif %}>{{ categoria }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700">Filtrar</button>
+    {% if q or categoria_activa %}
+    <a href="{% url 'productos:precios' %}"
+       class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50">Limpiar</a>
+    {% endif %}
+  </div>
+</form>
+
+{% if productos %}
+<form method="post" action="?{{ querystring }}">
+  {% csrf_token %}
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <tr>
+            <th class="px-4 py-3 text-left">Código</th>
+            <th class="px-4 py-3 text-left">Descripción</th>
+            <th class="px-4 py-3 text-left">Categoría</th>
+            <th class="px-4 py-3 text-left w-40">Precio</th>
+            <th class="px-4 py-3 text-left w-32">Moneda</th>
+            <th class="px-4 py-3 text-left w-28">Actualizado</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for p in productos %}
+          <tr class="{% if p.codigo in errores %}bg-red-50{% else %}hover:bg-gray-50{% endif %}">
+            <td class="px-4 py-2 font-mono text-xs text-gray-500 whitespace-nowrap">{{ p.codigo }}</td>
+            <td class="px-4 py-2 text-gray-900">{{ p.nombre }}</td>
+            <td class="px-4 py-2 text-gray-400 text-xs">{{ p.categoria|default:"—" }}</td>
+            <td class="px-4 py-2">
+              <input type="text" name="precio_{{ p.pk }}"
+                     value="{{ p.precio_crudo }}"
+                     inputmode="decimal"
+                     class="w-32 px-2 py-1 border rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500
+                            {% if p.codigo in errores %}border-red-400 bg-white{% else %}border-gray-300{% endif %}">
+            </td>
+            <td class="px-4 py-2">
+              <select name="moneda_{{ p.pk }}"
+                      class="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {% for valor, etiqueta in monedas %}
+                <option value="{{ valor }}" {% if p.moneda == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="px-4 py-2 text-gray-400 text-xs whitespace-nowrap">{{ p.updated_at|date:"d/m/Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-4 flex items-center gap-3">
+    <button type="submit"
+            class="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+      Guardar cambios
+    </button>
+    <p class="text-xs text-gray-400">
+      Se guarda solo lo que cambiaste. Un precio vacío deja el artículo sin precio.
+    </p>
+  </div>
+</form>
+
+{% if pagina and pagina.paginator.num_pages > 1 %}
+<div class="mt-6 flex items-center justify-between text-sm">
+  <span class="text-gray-500">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  <div class="flex gap-2">
+    {% if pagina.has_previous %}
+    <a href="?{% if querystring %}{{ querystring }}&{% endif %}pagina={{ pagina.previous_page_number }}"
+       class="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">Anterior</a>
+    {% endif %}
+    {% if pagina.has_next %}
+    <a href="?{% if querystring %}{{ querystring }}&{% endif %}pagina={{ pagina.next_page_number }}"
+       class="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">Siguiente</a>
+    {% endif %}
+  </div>
+</div>
+<p class="mt-2 text-xs text-amber-600">
+  Guardá antes de cambiar de página: los cambios de esta página no se llevan a la siguiente.
+</p>
+{% endif %}
+
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-400">
+  <p class="text-lg">No se encontraron artículos.</p>
+  <a href="{% url 'productos:precios' %}" class="text-blue-600 text-sm mt-2 inline-block hover:underline">Ver todos</a>
+</div>
+{% endif %}
+{% endblock %}

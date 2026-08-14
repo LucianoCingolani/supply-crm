@@ -23,15 +23,22 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     ADMIN = 'admin'
     GERENTE = 'gerente'
     EMPLEADO = 'empleado'
+    TESORERIA = 'tesoreria'
 
     ROLE_CHOICES = [
         (ADMIN, 'Admin'),
         (GERENTE, 'Gerente'),
         (EMPLEADO, 'Empleado'),
+        (TESORERIA, 'Tesorería'),
     ]
 
     # Roles que ven los datos de toda la empresa, no solo los propios
     ROLES_VISION_TOTAL = [ADMIN, GERENTE]
+
+    # Tesorería no trabaja el circuito comercial: entra a mantener los precios
+    # del catálogo y nada más.
+    ROLES_DE_VENTAS = [ADMIN, GERENTE, EMPLEADO]
+    ROLES_QUE_PONEN_PRECIOS = [ADMIN, GERENTE, TESORERIA]
 
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150)
@@ -82,6 +89,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def is_empleado(self):
         return self.role == self.EMPLEADO
 
+    @property
+    def is_tesoreria(self):
+        return self.role == self.TESORERIA
+
     # ── Capacidades ────────────────────────────────────────────────
     # Lo que consultan views, mixins y templates. Para cambiar qué puede
     # hacer un rol se toca únicamente acá.
@@ -121,3 +132,22 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def puede_administrar_admins(self):
         """Solo un Admin puede ver, crear o modificar a otros Admins."""
         return self.is_admin
+
+    @property
+    def puede_ver_ventas(self):
+        """El circuito comercial: consultas, clientes y la portada con sus números."""
+        return self.role in self.ROLES_DE_VENTAS
+
+    @property
+    def puede_editar_precios(self):
+        """Mantener la lista de precios, sin tocar el resto de la ficha."""
+        return self.role in self.ROLES_QUE_PONEN_PRECIOS
+
+    # ── Punto de entrada ───────────────────────────────────────────
+
+    @property
+    def pagina_inicial(self):
+        """A dónde va al ingresar, y a dónde se lo devuelve si pide algo que no
+        le corresponde. La portada muestra números de ventas, así que para
+        Tesorería no sirve como casa."""
+        return 'productos:precios' if not self.puede_ver_ventas else 'dashboard'
