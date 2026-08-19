@@ -104,7 +104,9 @@ body {
 /* ══════════════════════════════════════════════════
    BLOQUE DE PRODUCTO — uno por hoja
 ══════════════════════════════════════════════════ */
-.producto { page-break-inside: avoid; }
+/* Sin page-break-inside: avoid a propósito. Con él, un bloque que no entraba
+   bajo el membrete se iba entero a la hoja siguiente y la primera quedaba con
+   el membrete y nada más. Ahora, si no entra, sigue en la hoja de al lado. */
 .producto + .producto,
 .condiciones { page-break-before: always; }
 
@@ -119,10 +121,15 @@ p { margin: 3pt 0; }
    como parte de esa línea, y acá es donde hay que poder ajustarlo. */
 .foto {
   margin-top: 1.2cm;
+  /* La imagen no se parte al medio: si no entra, baja completa. */
+  page-break-inside: avoid;
 }
 .foto img {
   max-width: 11cm;
-  max-height: 10.63cm;
+  /* El modelo la inserta a 10,63cm, pero con el membrete arriba y una lista
+     larga de especificaciones eso no deja aire. 9cm entra siempre y la
+     diferencia no se nota. */
+  max-height: 9cm;
 }
 
 /* ══════════════════════════════════════════════════

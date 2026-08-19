@@ -178,6 +178,28 @@ class BloqueDeProductoTest(BasePDFTest):
         self.assertIsNotNone(margen, 'la foto tiene que separarse con un margen en cm')
         self.assertGreaterEqual(float(margen.group(1)), 1.0)
 
+    def test_el_bloque_no_salta_entero_a_la_hoja_siguiente(self):
+        """Con page-break-inside: avoid, un bloque que no entraba bajo el
+        membrete se iba completo a la hoja 2 y la primera quedaba con el
+        membrete y nada más. Pasó de verdad con una foto grande."""
+        self.linea(self.producto(foto=PNG_1PX, foto_tipo='image/png'))
+        self.assertNotRegex(self.html(),
+                            r'\.producto\s*\{[^}]*page-break-inside:\s*avoid')
+
+    def test_la_foto_entra_debajo_del_texto_en_la_primera_hoja(self):
+        """El alto útil bajo el membrete es ~19cm y el texto se come la mitad
+        con una lista larga de especificaciones: el tope tiene que dejar aire."""
+        self.linea(self.producto(foto=PNG_1PX, foto_tipo='image/png'))
+
+        tope = re.search(r'\.foto img\s*\{[^}]*max-height:\s*([\d.]+)cm', self.html())
+        self.assertIsNotNone(tope, 'la foto necesita un tope de alto')
+        self.assertLessEqual(float(tope.group(1)), 10.0)
+
+    def test_la_imagen_no_se_parte_entre_hojas(self):
+        self.linea(self.producto(foto=PNG_1PX, foto_tipo='image/png'))
+        self.assertRegex(self.html(),
+                         r'\.foto\s*\{[^}]*page-break-inside:\s*avoid')
+
     def test_sin_foto_no_deja_el_espacio_colgando(self):
         """El aire va en el bloque de la foto, así que sin foto no queda hueco."""
         self.linea(self.producto())
