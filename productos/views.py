@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.db.models.functions import Length
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -20,42 +21,74 @@ def categorias_existentes():
 
 
 class CatalogoView(LoginRequiredMixin, View):
+    """El catálogo, con el buscador global y las categorías al costado.
+
+    Antes entrabas y caías en la primera categoría, y el buscador se limitaba a
+    la que tuvieras abierta: para encontrar un artículo había que acertar la
+    categoría primero. Ahora arranca en «Todos» y se busca sobre los 740; la
+    categoría pasó a ser un filtro que se aplica sobre lo buscado.
+    """
+
+    POR_PAGINA = 60
+
     def get(self, request):
         q = request.GET.get('q', '').strip()
         categoria = request.GET.get('categoria', '').strip()
 
-        # Solo las que tienen algo que mostrar: una categoría vacía no es
-        # navegable y, si quedara primera, el redirect de abajo entraría en loop.
-        categorias = (
-            Categoria.objects
-            .annotate(total=Count('productos', filter=Q(productos__activo=True)))
-            .filter(total__gt=0)
-        )
+        encontrados = self.buscar(q)
+        qs = encontrados.filter(categoria__nombre=categoria) if categoria else encontrados
+        pagina = self.paginar(request, qs)
+        total = pagina.paginator.count
 
-        # Sin filtro activo: redirigir a la primera categoría
-        if not categoria and not q:
-            primera = categorias.first()
-            if primera:
-                return redirect(
-                    f"{reverse('productos:catalogo')}?categoria={primera.nombre}")
+        return render(request, 'productos/catalogo.html', {
+            'pagina': pagina,
+            # Las categorías se cuentan sobre lo buscado, así el costado dice en
+            # qué secciones cayeron los resultados y sirve para acotarlos.
+            'categorias': self.categorias(encontrados),
+            'q': q,
+            'categoria_activa': categoria,
+            'total': total,
+            # Sin categoría abierta es el mismo COUNT que ya hizo el paginador.
+            'total_general': encontrados.count() if categoria else total,
+        })
 
-        qs = Producto.objects.filter(activo=True).order_by('nombre')
+    def buscar(self, q):
+        qs = Producto.objects.filter(activo=True)
         if q:
             qs = qs.filter(
                 Q(nombre__icontains=q) |
                 Q(codigo__icontains=q) |
                 Q(especificaciones__icontains=q)
             )
-        if categoria:
-            qs = qs.filter(categoria__nombre=categoria)
+        return qs
 
-        return render(request, 'productos/catalogo.html', {
-            'productos': qs,
-            'categorias': categorias,
-            'q': q,
-            'categoria_activa': categoria,
-            'total': qs.count(),
-        })
+    def categorias(self, encontrados):
+        """Las categorías presentes en el resultado, con cuántos cayó en cada una.
+
+        Se arma sobre el resultado y no sobre la tabla de categorías: sin
+        búsqueda son todas las que tienen artículos, y con búsqueda quedan solo
+        las que tienen algo que mostrar.
+        """
+        filas = (encontrados
+                 .exclude(categoria=None)
+                 .values('categoria__nombre')
+                 .annotate(total=Count('id'))
+                 .order_by('categoria__nombre'))
+        return [{'nombre': f['categoria__nombre'], 'total': f['total']}
+                for f in filas]
+
+    def paginar(self, request, qs):
+        """Una página de tarjetas, sin traerse las fotos.
+
+        Las fotos pesan medio mega cada una y las sirve `consultas:producto_foto`
+        a pedido del browser, así que acá alcanza con saber si el artículo tiene
+        una: traer los binarios de sesenta artículos para decidir si mostrar un
+        ícono son cuarenta megas al horno.
+        """
+        qs = (qs.only('codigo', 'nombre', 'precio', 'moneda')
+                .annotate(bytes_de_foto=Length('foto'))
+                .order_by('nombre'))
+        return Paginator(qs, self.POR_PAGINA).get_page(request.GET.get('pagina'))
 
 
 class ProductoDetailView(LoginRequiredMixin, View):
