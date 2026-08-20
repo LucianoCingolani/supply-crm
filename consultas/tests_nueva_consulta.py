@@ -10,7 +10,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from clientes.models import Cliente
-from productos.models import Producto
+from productos.models import Categoria, Producto
 
 User = get_user_model()
 
@@ -181,9 +181,9 @@ class FiltroPorCategoriaTest(TestCase):
     def setUp(self):
         self.emp = usuario('e@test.com', User.EMPLEADO)
         self.cliente = Cliente.objects.create(razon_social='ACME SRL', vendedor=self.emp)
-        Producto.objects.create(codigo='P1', nombre='Pallet', categoria='pallets plasticos')
-        Producto.objects.create(codigo='C1', nombre='Cajón', categoria='Cajones')
-        Producto.objects.create(codigo='X1', nombre='Suelto', categoria='')
+        Producto.objects.create(codigo='P1', nombre='Pallet', categoria=Categoria.desde_nombre('pallets plasticos'))
+        Producto.objects.create(codigo='C1', nombre='Cajón', categoria=Categoria.desde_nombre('Cajones'))
+        Producto.objects.create(codigo='X1', nombre='Suelto', categoria=None)
         self.url = reverse('consultas:nueva_cotizacion', args=[self.cliente.pk])
         self.client.force_login(self.emp)
 
@@ -208,6 +208,6 @@ class FiltroPorCategoriaTest(TestCase):
 
     def test_los_productos_inactivos_no_llegan(self):
         Producto.objects.create(codigo='OFF', nombre='Dado de baja',
-                                categoria='Cajones', activo=False)
+                                categoria=Categoria.desde_nombre('Cajones'), activo=False)
         data = self.client.get(self.url).context['productos_data']
         self.assertNotIn('OFF', [p['codigo'] for p in data])

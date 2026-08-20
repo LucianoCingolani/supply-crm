@@ -11,17 +11,12 @@ from django.views import View
 
 from accounts.mixins import CapacidadRequeridaMixin
 from .forms import ProductoForm
-from .models import MONEDAS, Producto
+from .models import MONEDAS, Categoria, Producto
 
 
 def categorias_existentes():
-    """Categorías ya en uso, para sugerirlas en el alta."""
-    return (
-        Producto.objects.exclude(categoria='')
-        .values_list('categoria', flat=True)
-        .distinct()
-        .order_by('categoria')
-    )
+    """Todas las categorías, incluidas las que todavía no tienen artículos."""
+    return Categoria.objects.all()
 
 
 class CatalogoView(LoginRequiredMixin, View):
@@ -29,21 +24,20 @@ class CatalogoView(LoginRequiredMixin, View):
         q = request.GET.get('q', '').strip()
         categoria = request.GET.get('categoria', '').strip()
 
-        # Se excluyen las categorías vacías: no son navegables y, si quedaran
-        # primeras, el redirect de abajo entraría en loop.
+        # Solo las que tienen algo que mostrar: una categoría vacía no es
+        # navegable y, si quedara primera, el redirect de abajo entraría en loop.
         categorias = (
-            Producto.objects.filter(activo=True)
-            .exclude(categoria='')
-            .values('categoria')
-            .annotate(total=Count('id'))
-            .order_by('categoria')
+            Categoria.objects
+            .annotate(total=Count('productos', filter=Q(productos__activo=True)))
+            .filter(total__gt=0)
         )
 
         # Sin filtro activo: redirigir a la primera categoría
         if not categoria and not q:
             primera = categorias.first()
             if primera:
-                return redirect(f"{reverse('productos:catalogo')}?categoria={primera['categoria']}")
+                return redirect(
+                    f"{reverse('productos:catalogo')}?categoria={primera.nombre}")
 
         qs = Producto.objects.filter(activo=True).order_by('nombre')
         if q:
@@ -53,7 +47,7 @@ class CatalogoView(LoginRequiredMixin, View):
                 Q(especificaciones__icontains=q)
             )
         if categoria:
-            qs = qs.filter(categoria=categoria)
+            qs = qs.filter(categoria__nombre=categoria)
 
         return render(request, 'productos/catalogo.html', {
             'productos': qs,
@@ -194,13 +188,16 @@ class PreciosView(CapacidadRequeridaMixin, View):
         qs = Producto.objects.filter(activo=True)
         categoria = request.GET.get('categoria', '')
         if categoria:
-            qs = qs.filter(categoria=categoria)
+            qs = qs.filter(categoria__nombre=categoria)
         q = request.GET.get('q', '').strip()
         if q:
             qs = qs.filter(Q(nombre__icontains=q) | Q(codigo__icontains=q))
         # only() para no arrastrar la foto binaria de cada artículo.
-        qs = qs.only('codigo', 'nombre', 'categoria', 'precio', 'moneda',
-                     'unidad_medida', 'updated_at').order_by('categoria', 'nombre')
+        # select_related porque la tabla muestra el nombre de la categoría en
+        # cada una de las cien filas; sin él es una consulta por fila.
+        qs = qs.select_related('categoria').only(
+            'codigo', 'nombre', 'categoria__nombre', 'precio', 'moneda',
+            'unidad_medida', 'updated_at').order_by('categoria__nombre', 'nombre')
         return Paginator(qs, self.POR_PAGINA).get_page(request.GET.get('pagina'))
 
     def contexto(self, request, pagina=None, productos=None, errores=None):
@@ -223,6 +220,144 @@ class PreciosView(CapacidadRequeridaMixin, View):
             'monedas': MONEDAS,
             'querystring': request.GET.urlencode(),
         }
+
+
+class CategoriasView(CapacidadRequeridaMixin, View):
+    """Administración de las secciones del catálogo.
+
+    Existe para que el gerente no dependa de nadie para agregar una categoría
+    nueva, y para poder arreglar las que quedaron mal escritas sin entrar
+    artículo por artículo.
+    """
+
+    capacidad = 'puede_editar_catalogo'
+
+    ACCIONES = ('crear', 'renombrar', 'borrar', 'mover')
+
+    def get(self, request):
+        return render(request, 'productos/categorias.html', self.contexto(request))
+
+    def post(self, request):
+        accion = request.POST.get('accion')
+        if accion not in self.ACCIONES:
+            messages.error(request, 'Acción desconocida.')
+        else:
+            getattr(self, f'_{accion}')(request)
+        return redirect(f'{reverse("productos:categorias")}?{request.GET.urlencode()}')
+
+    # ── Acciones ───────────────────────────────────────────────────
+
+    def _crear(self, request):
+        nombre = request.POST.get('nombre', '').strip()
+        if not nombre:
+            messages.error(request, 'Escribí un nombre para la categoría.')
+            return
+        if Categoria.objects.filter(nombre__iexact=nombre).exists():
+            messages.error(request, f'Ya existe una categoría "{nombre}".')
+            return
+        Categoria.objects.create(nombre=nombre)
+        messages.success(
+            request,
+            f'Categoría "{nombre}" creada. Todavía no tiene artículos, así que no '
+            f'aparece en el catálogo hasta que le asignes alguno.')
+
+    def _renombrar(self, request):
+        categoria = self._categoria(request)
+        nombre = request.POST.get('nombre', '').strip()
+        if categoria is None or not nombre:
+            messages.error(request, 'Elegí una categoría y escribí el nombre nuevo.')
+            return
+        if (Categoria.objects.filter(nombre__iexact=nombre)
+                .exclude(pk=categoria.pk).exists()):
+            messages.error(
+                request,
+                f'Ya existe otra categoría "{nombre}". Para juntarlas, mové sus '
+                f'artículos y después borrá la que quede vacía.')
+            return
+        anterior = categoria.nombre
+        categoria.nombre = nombre
+        categoria.save(update_fields=['nombre'])
+        messages.success(request, f'"{anterior}" ahora se llama "{nombre}".')
+
+    def _borrar(self, request):
+        categoria = self._categoria(request)
+        if categoria is None:
+            return
+        # SET_NULL: los artículos no se van con ella, quedan sin clasificar.
+        cuantos = categoria.productos.count()
+        nombre = categoria.nombre
+        categoria.delete()
+        messages.success(
+            request,
+            f'Categoría "{nombre}" borrada.'
+            + (f' Sus {cuantos} artículo(s) quedaron sin clasificar.' if cuantos else ''))
+
+    def _mover(self, request):
+        """Mueve los artículos tildados a la categoría elegida."""
+        categoria = self._categoria(request)
+        if categoria is None:
+            return
+        ids = request.POST.getlist('producto')
+        if not ids:
+            messages.error(request, 'No tildaste ningún artículo.')
+            return
+        movidos = Producto.objects.filter(pk__in=ids).update(
+            categoria=categoria, updated_at=timezone.now())
+        messages.success(
+            request,
+            f'{movidos} artículo(s) movidos a "{categoria.nombre}".')
+
+    def _categoria(self, request):
+        categoria = Categoria.objects.filter(pk=request.POST.get('categoria')).first()
+        if categoria is None:
+            messages.error(request, 'No encontré esa categoría.')
+        return categoria
+
+    # ── Armado de la pantalla ──────────────────────────────────────
+
+    def contexto(self, request):
+        categorias = (
+            Categoria.objects
+            .annotate(total=Count('productos'))
+            .order_by('nombre')
+        )
+        # La categoría abierta: se ven sus artículos y los de al lado, para poder
+        # traer los que le faltan sin salir de la pantalla.
+        abierta = Categoria.objects.filter(pk=request.GET.get('abierta')).first()
+        return {
+            'categorias': categorias,
+            'abierta': abierta,
+            'miembros': self._miembros(abierta),
+            'articulos': self._articulos(request, abierta),
+            'q': request.GET.get('q', '').strip(),
+            'sin_clasificar': Producto.objects.filter(
+                activo=True, categoria=None).count(),
+        }
+
+    def _miembros(self, abierta):
+        """Lo que la categoría abierta ya tiene adentro, para poder revisarlo."""
+        if abierta is None:
+            return None
+        return abierta.productos.order_by('nombre')
+
+    def _articulos(self, request, abierta):
+        """Los artículos que se ofrecen para mover a la categoría abierta.
+
+        Sin filtro son los que no la tienen todavía —moverle uno que ya está no
+        hace nada— y el buscador acota, porque el catálogo tiene 740.
+        """
+        if abierta is None:
+            return None
+        qs = (Producto.objects.filter(activo=True)
+              .exclude(categoria=abierta)
+              .select_related('categoria'))
+        q = request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(Q(nombre__icontains=q) | Q(codigo__icontains=q))
+        else:
+            # Sin búsqueda, lo primero que se quiere ver son los sin clasificar.
+            qs = qs.filter(categoria=None)
+        return qs.order_by('categoria__nombre', 'nombre')[:200]
 
 
 class ProductoCreateView(CapacidadRequeridaMixin, View):

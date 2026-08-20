@@ -12,7 +12,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from productos.models import ARS, USD, Producto
+from productos.models import ARS, USD, Categoria, Producto
 
 User = get_user_model()
 
@@ -143,10 +143,10 @@ class GuardarPreciosTest(TestCase):
         self.client.force_login(usuario(User.TESORERIA))
         self.url = reverse('productos:precios')
         self.p1 = Producto.objects.create(codigo='P1', nombre='Pallet',
-                                          categoria='pallets plasticos',
+                                          categoria=Categoria.desde_nombre('pallets plasticos'),
                                           precio=Decimal('100'), moneda=ARS)
         self.p2 = Producto.objects.create(codigo='P2', nombre='Cajón',
-                                          categoria='Cajones',
+                                          categoria=Categoria.desde_nombre('Cajones'),
                                           precio=Decimal('200'), moneda=ARS)
 
     def payload(self, **overrides):
@@ -271,11 +271,11 @@ class FiltrosTest(TestCase):
         self.client.force_login(usuario(User.TESORERIA))
         self.url = reverse('productos:precios')
         Producto.objects.create(codigo='P1', nombre='Pallet ventilado',
-                                categoria='pallets plasticos', precio=Decimal('100'))
+                                categoria=Categoria.desde_nombre('pallets plasticos'), precio=Decimal('100'))
         Producto.objects.create(codigo='C1', nombre='Cajón cerrado',
-                                categoria='Cajones', precio=Decimal('200'))
+                                categoria=Categoria.desde_nombre('Cajones'), precio=Decimal('200'))
         Producto.objects.create(codigo='X1', nombre='Dado de baja',
-                                categoria='Cajones', activo=False)
+                                categoria=Categoria.desde_nombre('Cajones'), activo=False)
 
     def test_filtra_por_categoria(self):
         respuesta = self.client.get(self.url, {'categoria': 'Cajones'})

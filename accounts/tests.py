@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from clientes.models import Cliente
 from consultas.models import Consulta
-from productos.models import Producto
+from productos.models import Categoria, Producto
 
 User = get_user_model()
 
@@ -37,7 +37,7 @@ class BaseRolesTest(TestCase):
             cliente=cls.cli_b, vendedor=cls.emp_b)
 
         cls.producto = Producto.objects.create(
-            codigo='P61', nombre='Pallet plástico', categoria='PALLETS')
+            codigo='P61', nombre='Pallet plástico', categoria=Categoria.desde_nombre('PALLETS'))
 
     def login(self, user):
         self.client.force_login(user)

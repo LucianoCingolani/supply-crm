@@ -21,7 +21,7 @@ from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
-from productos.models import ARS, MONEDAS, UNIDADES_MEDIDA, USD, Producto
+from productos.models import ARS, MONEDAS, UNIDADES_MEDIDA, USD, Categoria, Producto
 
 # Cómo escribe cada export la unidad de medida. La clave va en minúsculas y sin
 # puntos; lo que no esté acá queda vacío en lugar de inventar una equivalencia.
@@ -201,7 +201,24 @@ class Command(BaseCommand):
             f'\nListo: {len(resultado)} productos procesados, {saltados} filas saltadas.'
         ))
 
+    def _categoria(self, nombre):
+        """La categoría con ese nombre, creándola si el archivo trae una nueva.
+
+        Cacheada: el archivo repite el mismo nombre en todas las filas de un
+        grupo y no tiene sentido consultar la base por cada una.
+        """
+        nombre = (nombre or '').strip()
+        if not nombre:
+            return None
+        if nombre not in self._categorias:
+            existia = Categoria.objects.filter(nombre=nombre).exists()
+            self._categorias[nombre] = Categoria.desde_nombre(nombre)
+            if not existia:
+                self.stdout.write(f'  categoría nueva: {nombre}')
+        return self._categorias[nombre]
+
     def _armar(self, filas, options):
+        self._categorias = {}
         objetos, vistos, sin_moneda = [], set(), []
         saltados = sin_unidad = 0
         now = timezone.now()
@@ -227,7 +244,7 @@ class Command(BaseCommand):
             objetos.append(Producto(
                 codigo=fila['codigo'],
                 nombre=fila['nombre'][:300],
-                categoria=fila['categoria'] or options['categoria'],
+                categoria=self._categoria(fila['categoria'] or options['categoria']),
                 subcategoria=fila['subcategoria'],
                 unidad_medida=fila['unidad_medida'],
                 precio=fila['precio'],
@@ -271,10 +288,11 @@ class Command(BaseCommand):
 
         categorias = {}
         for o in objetos:
-            categorias[o.categoria] = categorias.get(o.categoria, 0) + 1
+            clave = o.categoria.nombre if o.categoria_id else ''
+            categorias[clave] = categorias.get(clave, 0) + 1
         self.stdout.write(f'\n  categorías ({len(categorias)}):')
         for nombre, n in sorted(categorias.items(), key=lambda x: (-x[1], x[0])):
-            self.stdout.write(f'    {n:>4}  {nombre or "(vacía)"}')
+            self.stdout.write(f'    {n:>4}  {nombre or "(sin clasificar)"}')
 
         # Con precio pero sin moneda declarada: quedan en el respaldo, y eso es
         # una suposición que quien importa tiene que poder revisar.

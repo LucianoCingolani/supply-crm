@@ -115,7 +115,7 @@
                         <option value="">— Seleccioná un producto —</option>
                         {% regroup productos by categoria as grupos %}
                         {% for grupo in grupos %}
-                        <optgroup label="{{ grupo.grouper }}">
+                        <optgroup label="{{ grupo.grouper|default:"Sin clasificar" }}">
                             {% for p in grupo.list %}
                             <option value="{{ p.pk }}" data-nombre="{{ p.nombre }}" data-precio="{{ p.precio|default:0 }}" data-moneda="{{ p.moneda }}">
                                 {{ p.codigo }} — {{ p.nombre }}

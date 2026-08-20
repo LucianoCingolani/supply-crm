@@ -37,8 +37,9 @@ def leer_tipo_cambio(request):
 
 
 def categorias_de(productos):
-    """Las categorías en uso, ordenadas y sin repetir, para el filtro."""
-    return sorted({p.categoria for p in productos if p.categoria}, key=str.lower)
+    """Los nombres de las categorías en uso, ordenados y sin repetir."""
+    return sorted({p.categoria.nombre for p in productos if p.categoria_id},
+                  key=str.lower)
 
 
 def productos_para_selector(productos):
@@ -52,7 +53,7 @@ def productos_para_selector(productos):
             'id': p.pk,
             'codigo': p.codigo,
             'nombre': p.nombre,
-            'categoria': p.categoria,
+            'categoria': p.categoria.nombre if p.categoria_id else '',
             'precio': float(p.precio) if p.precio else 0,
             'moneda': p.moneda,
         }
@@ -165,7 +166,9 @@ class ConsultaEditView(ConsultaAccesoMixin, View):
 class CotizacionView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'lineas__producto')
-        productos = Producto.objects.filter(activo=True).order_by('categoria', 'nombre')
+        productos = (Producto.objects.filter(activo=True)
+                     .select_related('categoria')
+                     .order_by('categoria__nombre', 'nombre'))
         # Esta pantalla arma el selector en el template, con las opciones
         # agrupadas por categoría; no necesita los productos en JSON.
         return render(request, 'consultas/cotizacion.html', {
@@ -354,7 +357,9 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
 
     def _render(self, request, cliente, fecha_str=None, post=None):
         import datetime
-        productos = list(Producto.objects.filter(activo=True).order_by('categoria', 'nombre'))
+        productos = list(Producto.objects.filter(activo=True)
+                         .select_related('categoria')
+                         .order_by('categoria__nombre', 'nombre'))
         return render(request, 'consultas/nueva_cotizacion.html', {
             'cliente': cliente,
             'productos': productos,

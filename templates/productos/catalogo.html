@@ -31,11 +31,11 @@
       </div>
       <nav class="divide-y divide-gray-50 max-h-[70vh] overflow-y-auto">
         {% for cat in categorias %}
-        {% if cat.categoria %}
-        <a href="?categoria={{ cat.categoria|urlencode }}"
+        {% if cat.nombre %}
+        <a href="?categoria={{ cat.nombre|urlencode }}"
            class="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors
-                  {% if categoria_activa == cat.categoria %}font-semibold text-blue-600 bg-blue-50{% else %}text-gray-700{% endif %}">
-          <span class="leading-tight">{{ cat.categoria }}</span>
+                  {% if categoria_activa == cat.nombre %}font-semibold text-blue-600 bg-blue-50{% else %}text-gray-700{% endif %}">
+          <span class="leading-tight">{{ cat.nombre }}</span>
           <span class="ml-2 text-xs text-gray-400 flex-shrink-0">{{ cat.total }}</span>
         </a>
         {% endif %}

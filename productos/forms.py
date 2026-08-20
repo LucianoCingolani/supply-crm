@@ -61,11 +61,7 @@ class ProductoForm(forms.ModelForm):
             'nombre': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ej: Guante de nitrilo azul talle L'}),
             'unidad_medida': forms.Select(attrs={'class': SELECT_CLASS}),
             'moneda': forms.Select(attrs={'class': SELECT_CLASS}),
-            'categoria': forms.TextInput(attrs={
-                'class': INPUT_CLASS,
-                'placeholder': 'Ej: Protección de manos',
-                'list': 'categorias-existentes',
-            }),
+            'categoria': forms.Select(attrs={'class': SELECT_CLASS}),
             'colores': forms.TextInput(attrs={
                 'class': INPUT_CLASS, 'placeholder': 'Ej: A elección',
             }),
@@ -83,7 +79,8 @@ class ProductoForm(forms.ModelForm):
             'moneda': 'En qué moneda está el precio de arriba. La cotización convierte si hace falta.',
             # El catálogo se navega por categoría: sin ella el artículo existe
             # pero solo aparece buscándolo por nombre o código.
-            'categoria': 'Define en qué sección del catálogo aparece. Elegí una de la lista o escribí una nueva.',
+            'categoria': 'Define en qué sección del catálogo aparece. Las categorías se '
+                         'administran en su propia pantalla.',
             'especificaciones': 'Una por línea. Salen como bullets en la ficha.',
         }
 

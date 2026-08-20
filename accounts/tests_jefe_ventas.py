@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from clientes.models import Cliente
 from consultas.models import Consulta
-from productos.models import ARS, Producto
+from productos.models import ARS, Categoria, Producto
 
 User = get_user_model()
 
@@ -128,12 +128,14 @@ class MantieneElCatalogoTest(BaseJefeTest):
     def setUp(self):
         super().setUp()
         self.producto = Producto.objects.create(
-            codigo='P1', nombre='Pallet', moneda=ARS, categoria='Pallets')
+            codigo='P1', nombre='Pallet', moneda=ARS,
+            categoria=Categoria.desde_nombre('Pallets'))
 
     def test_edita_un_articulo(self):
         self.client.post(reverse('productos:detail', args=[self.producto.pk]),
                          {'nombre': 'Pallet reforzado', 'unidad_medida': '',
-                          'precio': '150', 'moneda': ARS, 'categoria': 'Pallets',
+                          'precio': '150', 'moneda': ARS,
+                          'categoria': self.producto.categoria_id,
                           'colores': '', 'especificaciones': ''})
         self.producto.refresh_from_db()
         self.assertEqual(self.producto.nombre, 'Pallet reforzado')

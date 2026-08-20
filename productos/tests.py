@@ -12,7 +12,7 @@ from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from productos.models import ARS, USD, Producto
+from productos.models import ARS, USD, Categoria, Producto
 
 User = get_user_model()
 
@@ -37,7 +37,8 @@ def datos(**overrides):
         'unidad_medida': 'PAR',
         'precio': '1500.50',
         'moneda': ARS,
-        'categoria': 'Protección de manos',
+        # El campo es un select: espera la pk de una categoría que exista.
+        'categoria': Categoria.desde_nombre('Protección de manos').pk,
     }
     return {**base, **overrides}
 
@@ -82,12 +83,13 @@ class AltaArticuloTest(TestCase):
         self.assertEqual(producto.nombre, 'Guante de nitrilo azul talle L')
         self.assertEqual(producto.unidad_medida, 'PAR')
         self.assertEqual(producto.precio, Decimal('1500.50'))
-        self.assertEqual(producto.categoria, 'Protección de manos')
+        self.assertEqual(producto.categoria.nombre, 'Protección de manos')
         self.assertTrue(producto.activo)
 
     def test_nace_visible_en_el_catalogo(self):
         self.client.post(self.url, datos())
-        respuesta = self.client.get(reverse('productos:catalogo'), {'categoria': 'Protección de manos'})
+        respuesta = self.client.get(reverse('productos:catalogo'),
+                                    {'categoria': 'Protección de manos'})
         self.assertContains(respuesta, 'SA-001')
 
     def test_guarda_la_imagen_en_la_fila(self):
@@ -156,7 +158,8 @@ class AltaArticuloTest(TestCase):
         self.assertEqual(respuesta.status_code, 200)
 
     def test_sugiere_las_categorias_que_ya_existen(self):
-        Producto.objects.create(codigo='SA-999', nombre='Otro', categoria='Calzado de seguridad')
+        Producto.objects.create(codigo='SA-999', nombre='Otro',
+                                categoria=Categoria.desde_nombre('Calzado de seguridad'))
         respuesta = self.client.get(self.url)
         self.assertContains(respuesta, 'Calzado de seguridad')
 
@@ -172,7 +175,8 @@ class EditarDesdeLaFichaTest(TestCase):
     def setUp(self):
         self.producto = Producto.objects.create(
             codigo='SA-001', nombre='Guante', unidad_medida='PAR',
-            precio=Decimal('100'), moneda=ARS, categoria='Vieja',
+            precio=Decimal('100'), moneda=ARS,
+            categoria=Categoria.desde_nombre('Vieja'),
         )
         self.url = reverse('productos:detail', args=[self.producto.pk])
         self.client.force_login(usuario(User.GERENTE, 'gerente@test.com'))
@@ -183,7 +187,7 @@ class EditarDesdeLaFichaTest(TestCase):
             'unidad_medida': 'PAR',
             'precio': '100',
             'moneda': ARS,
-            'categoria': 'Vieja',
+            'categoria': Categoria.desde_nombre('Vieja').pk,
             'especificaciones': '',
         }
         return {**base, **overrides}
@@ -201,9 +205,10 @@ class EditarDesdeLaFichaTest(TestCase):
 
     def test_cambia_la_categoria(self):
         """Lo que hacía falta para sacar del limbo a lo que se importó."""
-        self.client.post(self.url, self.edicion(categoria='Protección de manos'))
+        nueva = Categoria.desde_nombre('Protección de manos')
+        self.client.post(self.url, self.edicion(categoria=nueva.pk))
         self.producto.refresh_from_db()
-        self.assertEqual(self.producto.categoria, 'Protección de manos')
+        self.assertEqual(self.producto.categoria, nueva)
 
     def test_cambia_precio_y_moneda_juntos(self):
         self.client.post(self.url, self.edicion(precio='16,81', moneda=USD))
@@ -259,7 +264,8 @@ class EditarDesdeLaFichaTest(TestCase):
         self.assertEqual(sin_unidad.precio, Decimal('50'))
 
     def test_sugiere_las_categorias_existentes(self):
-        Producto.objects.create(codigo='SA-003', nombre='Otro', categoria='Calzado de seguridad')
+        Producto.objects.create(codigo='SA-003', nombre='Otro',
+                                categoria=Categoria.desde_nombre('Calzado de seguridad'))
         self.assertContains(self.client.get(self.url), 'Calzado de seguridad')
 
 
@@ -377,7 +383,7 @@ class ImportarListaTest(TestCase):
 
     def test_aplica_la_categoria_que_se_le_pasa(self):
         self.importar([('A1', 'Algo', 'Un', 10)], categoria='Pallets')
-        self.assertEqual(Producto.objects.get(codigo='A1').categoria, 'Pallets')
+        self.assertEqual(Producto.objects.get(codigo='A1').categoria.nombre, 'Pallets')
 
     def test_aplica_la_moneda_que_se_le_pasa(self):
         self.importar([('A1', 'Algo', 'Un', 10)], moneda=USD)
@@ -449,7 +455,7 @@ class ImportarEnexproTest(TestCase):
 
         self.assertEqual(Producto.objects.count(), 1)
         producto = Producto.objects.get(codigo='P1')
-        self.assertEqual(producto.categoria, 'Pallets')
+        self.assertEqual(producto.categoria.nombre, 'Pallets')
         self.assertEqual(producto.subcategoria, 'Plásticos')
 
 
@@ -567,7 +573,7 @@ class ImportarConCategoriasTest(TestCase):
         self.importar([('Armarios', '215665', 'ARMARIO', 'Un', 499586.77, FORMATO_ARS)])
 
         producto = Producto.objects.get(codigo='215665')
-        self.assertEqual(producto.categoria, 'Armarios')
+        self.assertEqual(producto.categoria.nombre, 'Armarios')
         self.assertEqual(producto.nombre, 'ARMARIO')
         self.assertEqual(producto.unidad_medida, 'UN')
         self.assertEqual(producto.precio, Decimal('499586.77'))
@@ -581,7 +587,8 @@ class ImportarConCategoriasTest(TestCase):
             (None, 'A3', 'Armario grande', 'Un', 30, FORMATO_ARS),
         ])
         for codigo in ('A1', 'A2', 'A3'):
-            self.assertEqual(Producto.objects.get(codigo=codigo).categoria, 'Armarios')
+            self.assertEqual(
+                Producto.objects.get(codigo=codigo).categoria.nombre, 'Armarios')
 
     def test_el_grupo_siguiente_corta_el_arrastre(self):
         self.importar([
@@ -590,14 +597,14 @@ class ImportarConCategoriasTest(TestCase):
             ('Bandejas', 'B1', 'Bandeja', 'Un', 30, FORMATO_ARS),
             (None, 'B2', 'Otra bandeja', 'Un', 40, FORMATO_ARS),
         ])
-        self.assertEqual(Producto.objects.get(codigo='A2').categoria, 'Armarios')
-        self.assertEqual(Producto.objects.get(codigo='B1').categoria, 'Bandejas')
-        self.assertEqual(Producto.objects.get(codigo='B2').categoria, 'Bandejas')
+        self.assertEqual(Producto.objects.get(codigo='A2').categoria.nombre, 'Armarios')
+        self.assertEqual(Producto.objects.get(codigo='B1').categoria.nombre, 'Bandejas')
+        self.assertEqual(Producto.objects.get(codigo='B2').categoria.nombre, 'Bandejas')
 
     def test_le_saca_los_espacios_a_la_categoria(self):
         """El export trae 'Bandejas ' con espacio al final."""
         self.importar([('Bandejas ', 'B1', 'Bandeja', 'Un', 10, FORMATO_ARS)])
-        self.assertEqual(Producto.objects.get(codigo='B1').categoria, 'Bandejas')
+        self.assertEqual(Producto.objects.get(codigo='B1').categoria.nombre, 'Bandejas')
 
     def test_la_moneda_sigue_saliendo_del_formato(self):
         self.importar([
@@ -612,28 +619,31 @@ class ImportarConCategoriasTest(TestCase):
             [(None, 'X1', 'Huérfano', 'Un', 10, FORMATO_ARS)],
             categoria='Sin clasificar',
         )
-        self.assertEqual(Producto.objects.get(codigo='X1').categoria, 'Sin clasificar')
+        self.assertEqual(Producto.objects.get(codigo='X1').categoria.nombre,
+                         'Sin clasificar')
         self.assertIn('Sin clasificar', salida)
 
     def test_le_pone_la_categoria_a_lo_que_ya_estaba_sin_clasificar(self):
         """El caso real: los artículos ya están importados, falta clasificarlos."""
-        Producto.objects.create(codigo='P1', nombre='Pallet', categoria='Sin clasificar',
+        Producto.objects.create(codigo='P1', nombre='Pallet',
+                                categoria=Categoria.desde_nombre('Sin clasificar'),
                                 precio=Decimal('49.50'), moneda=USD)
         self.importar([('pallets plasticos', 'P1', 'Pallet', 'Un', 49.50, FORMATO_USD)])
 
         self.assertEqual(Producto.objects.count(), 1)
         producto = Producto.objects.get(codigo='P1')
-        self.assertEqual(producto.categoria, 'pallets plasticos')
+        self.assertEqual(producto.categoria.nombre, 'pallets plasticos')
         self.assertEqual(producto.precio, Decimal('49.50'))
 
     def test_no_toca_los_que_no_vienen_en_el_archivo(self):
         """Un export más corto no borra ni desactiva lo que quedó afuera."""
         Producto.objects.create(codigo='VIEJO', nombre='Descontinuado',
-                                categoria='Sin clasificar', precio=Decimal('100'))
+                                categoria=Categoria.desde_nombre('Sin clasificar'),
+                                precio=Decimal('100'))
         self.importar([('Armarios', 'A1', 'Armario', 'Un', 10, FORMATO_ARS)])
 
         viejo = Producto.objects.get(codigo='VIEJO')
-        self.assertEqual(viejo.categoria, 'Sin clasificar')
+        self.assertEqual(viejo.categoria.nombre, 'Sin clasificar')
         self.assertTrue(viejo.activo)
 
     def test_lista_las_categorias_en_el_resumen(self):

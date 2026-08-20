@@ -13,6 +13,7 @@ CLASES_INACTIVA = 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
 # salen tanto el contenido del menú como el resaltado del botón que lo abre.
 GESTION = {
     'precios': ('Precios', 'productos:precios'),
+    'categorias': ('Categorías', 'productos:categorias'),
     'equipo': ('Equipo', 'reportes:equipo'),
     'usuarios': ('Usuarios', 'accounts:user_list'),
 }
@@ -24,8 +25,8 @@ def _seccion(request):
 
     Se resuelve por app y no por URL exacta, así las pantallas internas marcan
     su sección: la ficha de un cliente marca Clientes y una cotización marca
-    Consultas. Catálogo y Precios comparten la app `productos`, así que ahí hace
-    falta mirar el nombre de la ruta.
+    Consultas. Catálogo, Precios y Categorías comparten la app `productos`, así
+    que ahí hace falta mirar el nombre de la ruta.
     """
     match = getattr(request, 'resolver_match', None)
     if match is None:
@@ -34,7 +35,9 @@ def _seccion(request):
     nombre = match.url_name or ''
 
     if espacio == 'productos':
-        return 'precios' if nombre == 'precios' else 'catalogo'
+        if nombre in ('precios', 'categorias'):
+            return nombre
+        return 'catalogo'
     if espacio == 'reportes':
         return 'equipo'
     if espacio == 'accounts':
@@ -79,6 +82,7 @@ def items_gestion(context):
 
     permitido = {
         'precios': user.puede_editar_precios,
+        'categorias': user.puede_editar_catalogo,
         'equipo': user.puede_ver_reportes,
         'usuarios': user.puede_gestionar_usuarios,
     }
