@@ -1,4 +1,4 @@
-{% load static tailwind_tags %}
+{% load static tailwind_tags navegacion %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -18,36 +18,96 @@
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
                     <span class="text-xl font-bold text-blue-600">Supply Argentina</span>
-                    <div class="ml-10 flex space-x-4">
+                    <div class="ml-10 flex items-center space-x-1">
+                        {% seccion_activa as seccion %}
                         {% if user.puede_ver_ventas %}
-                        <a href="{% url 'dashboard' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Dashboard</a>
-                        <a href="{% url 'consultas:list' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Consultas</a>
-                        <a href="{% url 'clientes:list' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Clientes</a>
+                        <a href="{% url 'dashboard' %}" class="{% clase_nav 'dashboard' %}">Dashboard</a>
+                        <a href="{% url 'consultas:list' %}" class="{% clase_nav 'consultas' %}">Consultas</a>
+                        <a href="{% url 'clientes:list' %}" class="{% clase_nav 'clientes' %}">Clientes</a>
                         {% endif %}
-                        <a href="{% url 'productos:catalogo' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Catálogo</a>
-                        {% if user.puede_editar_precios %}
-                        <a href="{% url 'productos:precios' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Precios</a>
-                        {% endif %}
-                        {% if user.puede_ver_reportes %}
-                        <a href="{% url 'reportes:equipo' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Equipo</a>
-                        {% endif %}
-                        {% if user.puede_gestionar_usuarios %}
-                        <a href="{% url 'accounts:user_list' %}" class="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium">Usuarios</a>
+                        <a href="{% url 'productos:catalogo' %}" class="{% clase_nav 'catalogo' %}">Catálogo</a>
+
+                        {% items_gestion as gestion %}
+                        {% if gestion|length == 1 %}
+                        {# Único acceso del rol: suelto, no escondido en un menú #}
+                        {% for item in gestion %}
+                        <a href="{{ item.url }}" class="{% clase_nav item.clave %}">{{ item.etiqueta }}</a>
+                        {% endfor %}
+                        {% elif gestion %}
+                        <div class="relative" data-menu>
+                            <button type="button" data-menu-boton
+                                    class="{% clase_nav_gestion %} flex items-center gap-1">
+                                Gestión
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div data-menu-panel
+                                 class="hidden absolute left-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-40">
+                                {% for item in gestion %}
+                                <a href="{{ item.url }}"
+                                   class="block px-4 py-2 text-sm {% if item.clave == seccion %}bg-blue-50 text-blue-700 font-medium{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                                    {{ item.etiqueta }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <a href="{% url 'accounts:change_password' %}"
-                       class="text-sm text-gray-600 hover:text-blue-600"
-                       title="Cambiar mi contraseña">{{ user.get_full_name|default:user.email }}</a>
-                    <form method="post" action="{% url 'accounts:logout' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="text-sm text-gray-500 hover:text-red-600">Salir</button>
-                    </form>
+
+                <div class="flex items-center">
+                    <div class="relative" data-menu>
+                        <button type="button" data-menu-boton
+                                class="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-gray-50">
+                            {{ user.get_full_name|default:user.email }}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div data-menu-panel
+                             class="hidden absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-40">
+                            <p class="px-4 py-2 text-xs text-gray-400 border-b border-gray-100">
+                                {{ user.get_role_display }}
+                            </p>
+                            <a href="{% url 'accounts:change_password' %}"
+                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Cambiar contraseña</a>
+                            <form method="post" action="{% url 'accounts:logout' %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    Salir
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
+
+    <script>
+    // Los desplegables del navbar: abrir con clic, cerrar al hacer clic afuera
+    // o con Escape. Con hover no sirve — hay que quedarse encima para elegir.
+    (function () {
+      const menus = Array.from(document.querySelectorAll('[data-menu]'));
+      const panel = m => m.querySelector('[data-menu-panel]');
+      const cerrarTodos = () => menus.forEach(m => panel(m).classList.add('hidden'));
+
+      menus.forEach(menu => {
+        menu.querySelector('[data-menu-boton]').addEventListener('click', e => {
+          e.stopPropagation();
+          const propio = panel(menu);
+          const estaba = propio.classList.contains('hidden');
+          cerrarTodos();
+          if (estaba) propio.classList.remove('hidden');
+        });
+      });
+
+      document.addEventListener('click', cerrarTodos);
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarTodos(); });
+    })();
+    </script>
     {% endif %}
 
     <main class="{% if user.is_authenticated %}max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% endif %}">

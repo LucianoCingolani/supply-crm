@@ -265,8 +265,15 @@ class RenderSVGTest(BaseDashboardTest):
         self.consulta(self.emp_a, Consulta.COTIZADO)
         self.client.force_login(self.gerente)
         cuerpo = self.client.get(reverse('dashboard')).content.decode()
-        inicio = cuerpo.index('<svg')
-        return cuerpo[inicio:cuerpo.index('</svg>', inicio)]
+
+        # El navbar también trae <svg> (los chevrones de los desplegables), así
+        # que hay que buscar el del gráfico y no el primero de la página: con
+        # `index('<svg')` estos tests analizaban un icono y pasaban en vacío.
+        for encontrado in re.finditer(r'<svg', cuerpo):
+            bloque = cuerpo[encontrado.start():cuerpo.index('</svg>', encontrado.start())]
+            if 'polyline' in bloque:
+                return bloque
+        self.fail('el dashboard no trajo el gráfico de evolución')
 
     def test_las_coordenadas_no_llevan_coma_decimal(self):
         """Con LANGUAGE_CODE='es-ar' Django escribía x="38,0".
