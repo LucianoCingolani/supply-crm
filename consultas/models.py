@@ -159,6 +159,22 @@ class Consulta(models.Model):
             return self.fecha_seguimiento <= timezone.now().date()
         return False
 
+    @property
+    def nombre_del_cliente(self):
+        """A quién se le está cotizando, para el PDF.
+
+        La consulta guarda una copia de la razón social al cargarse y esa es la
+        fuente: sobrevive incluso si después se borra el cliente. La ficha queda
+        como respaldo para las consultas que nunca la copiaron, y el contacto
+        para las que no tienen razón social en ninguna parte.
+        """
+        copiada = (self.razon_social or '').strip()
+        if copiada:
+            return copiada
+        if self.cliente_id and self.cliente and self.cliente.razon_social.strip():
+            return self.cliente.razon_social.strip()
+        return (self.contacto or '').strip()
+
     # ── Moneda y totales ───────────────────────────────────────────
 
     @property

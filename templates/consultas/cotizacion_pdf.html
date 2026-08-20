@@ -101,6 +101,10 @@ body {
 }
 .titulo-fecha { text-align: right; }
 
+/* A quién se le cotiza. En cuerpo de texto y no con el estilo de título: en la
+   hoja 1 cada línea de más empuja la foto, y acá el alto está contado. */
+.cliente { margin-top: 6pt; }
+
 /* ══════════════════════════════════════════════════
    BLOQUE DE PRODUCTO — uno por hoja
 ══════════════════════════════════════════════════ */
@@ -126,10 +130,10 @@ p { margin: 3pt 0; }
 }
 .foto img {
   max-width: 11cm;
-  /* El modelo la inserta a 10,63cm, pero con el membrete arriba y una lista
-     larga de especificaciones eso no deja aire. 9cm entra siempre y la
-     diferencia no se nota. */
-  max-height: 9cm;
+  /* El modelo la inserta a 10,63cm, pero en la hoja 1 el membrete, el
+     encabezado con el cliente y una lista larga de especificaciones ya se
+     comen 17cm: con 8,5 quedan 0,8cm de aire y el artículo entra en una hoja. */
+  max-height: 8.5cm;
 }
 
 /* ══════════════════════════════════════════════════
@@ -173,6 +177,9 @@ p { margin: 3pt 0; }
 
 <p class="titulo titulo-fecha">Buenos Aires {{ consulta.fecha|date:"j \d\e F Y" }}</p>
 <p class="titulo">Cotizacion {{ consulta.numero_cotizacion|default:consulta.pk }}</p>
+
+<p class="cliente"><span class="etiqueta">Cliente:</span>
+   {{ consulta.nombre_del_cliente|default:"—" }}</p>
 
 <div class="espacio"></div>
 

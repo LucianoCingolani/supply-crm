@@ -39,8 +39,10 @@ class BasePDFTest(TestCase):
         self.user = usuario()
         self.cliente = Cliente.objects.create(
             razon_social='ACME SRL', cuit='30-71234567-8', vendedor=self.user)
+        # razon_social copiada, como la deja copiar_datos_del_cliente al cargarla.
         self.consulta = Consulta.objects.create(
             productos='Recipiente', cliente=self.cliente, vendedor=self.user,
+            razon_social='ACME SRL',
             numero_cotizacion='1914', fecha=datetime.date(2026, 7, 17), moneda=ARS)
 
     def producto(self, **kwargs):
@@ -81,11 +83,43 @@ class EncabezadoTest(BasePDFTest):
         self.consulta.save()
         self.assertIn(f'Cotizacion {self.consulta.pk}', self.html())
 
-    def test_no_nombra_al_cliente(self):
-        """Decisión del modelo: el PDF no lleva razón social ni CUIT."""
+    def test_nombra_al_cliente(self):
+        """El modelo del gerente no lo traía, pero sin esto la cotización no
+        dice a quién se le está cotizando."""
         html = self.html()
-        self.assertNotIn('ACME SRL', html)
-        self.assertNotIn('30-71234567-8', html)
+        self.assertIn('Cliente:', html)
+        self.assertIn('ACME SRL', html)
+
+    def test_no_muestra_el_cuit(self):
+        """Se pidió la razón social nomás: el dato fiscal recién hace falta al
+        facturar, y cada línea en la hoja 1 empuja la foto."""
+        self.assertNotIn('30-71234567-8', self.html())
+
+    def test_usa_la_razon_social_copiada_en_la_consulta(self):
+        """Así el PDF sigue nombrando al cliente aunque después se lo borre."""
+        self.consulta.cliente = None
+        self.consulta.save()
+        self.assertIn('ACME SRL', self.html())
+
+    def test_sin_la_copia_lo_busca_en_la_ficha_del_cliente(self):
+        """Una consulta vieja o cargada por otra vía puede no tenerla copiada."""
+        self.consulta.razon_social = ''
+        self.consulta.save()
+        self.assertIn('ACME SRL', self.html())
+
+    def test_sin_razon_social_en_ningun_lado_cae_al_contacto(self):
+        self.consulta.razon_social = ''
+        self.consulta.contacto = 'Juan Pérez'
+        self.consulta.cliente = None
+        self.consulta.save()
+        self.assertIn('Juan Pérez', self.html())
+
+    def test_la_copia_le_gana_a_la_ficha(self):
+        """Si el cliente se renombró después, la cotización dice lo que decía
+        cuando se emitió."""
+        self.cliente.razon_social = 'ACME Sociedad Anonima'
+        self.cliente.save()
+        self.assertIn('ACME SRL', self.html())
 
     def test_lleva_el_membrete_embebido(self):
         html = self.html()
