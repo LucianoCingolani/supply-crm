@@ -218,3 +218,68 @@ class PermisosTest(BaseTest):
         respuesta = self.client.post(self.url)
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn('login', respuesta['Location'])
+
+
+class NoTraeLosBinariosTest(BaseTest):
+    """Las fotos pesan medio mega: solo se cargan donde se muestran.
+
+    Ninguna de estas pantallas dibuja la foto en el HTML —el <img> la pide al
+    endpoint aparte—, así que traer el binario de cada artículo es cargar
+    decenas de megas para descartarlas.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from clientes.models import Cliente
+        self.cliente = Cliente.objects.create(razon_social='ACME SRL')
+
+    def sin_foto_cargada(self, productos):
+        return all('foto' not in p.__dict__ for p in productos)
+
+    def test_el_catalogo_no_la_trae(self):
+        respuesta = self.client.get(reverse('productos:catalogo'))
+        self.assertTrue(self.sin_foto_cargada(respuesta.context['pagina']))
+
+    def test_la_pantalla_de_precios_no_la_trae(self):
+        respuesta = self.client.get(reverse('productos:precios'))
+        self.assertTrue(self.sin_foto_cargada(respuesta.context['productos']))
+
+    def categoria_abierta(self, dentro):
+        """La pantalla de categorías con una abierta: lista lo que tiene
+        adentro y, aparte, los candidatos a mover. Ninguna de las dos listas
+        muestra la foto."""
+        from productos.models import Categoria
+        categoria = Categoria.objects.create(nombre='Guantes')
+        if dentro:
+            Producto.objects.filter(pk=self.producto.pk).update(categoria=categoria)
+        return self.client.get(reverse('productos:categorias'),
+                               {'abierta': categoria.pk})
+
+    def test_los_candidatos_a_mover_no_la_traen(self):
+        respuesta = self.categoria_abierta(dentro=False)
+        self.assertEqual(list(respuesta.context['articulos']), [self.producto])
+        self.assertTrue(self.sin_foto_cargada(respuesta.context['articulos']))
+
+    def test_los_miembros_de_una_categoria_tampoco(self):
+        respuesta = self.categoria_abierta(dentro=True)
+        self.assertEqual(list(respuesta.context['miembros']), [self.producto])
+        self.assertTrue(self.sin_foto_cargada(respuesta.context['miembros']))
+
+    def test_armar_una_cotizacion_nueva_no_la_trae(self):
+        respuesta = self.client.get(
+            reverse('consultas:nueva_cotizacion', args=[self.cliente.pk]))
+        self.assertTrue(self.sin_foto_cargada(respuesta.context['productos']))
+
+    def test_editar_una_cotizacion_no_la_trae(self):
+        from consultas.models import Consulta
+        consulta = Consulta.objects.create(
+            productos='x', razon_social='ACME', moneda=ARS,
+            vendedor=User.objects.get(role=User.GERENTE))
+        respuesta = self.client.get(
+            reverse('consultas:cotizacion', args=[consulta.pk]))
+        self.assertTrue(self.sin_foto_cargada(respuesta.context['productos']))
+
+    def test_la_ficha_si_la_necesita_y_la_trae(self):
+        """El contraste: acá la foto se usa para decidir qué mostrar."""
+        respuesta = self.client.get(self.ficha)
+        self.assertTrue(respuesta.context['producto'].foto)

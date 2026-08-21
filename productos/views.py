@@ -467,7 +467,8 @@ class CategoriasView(CapacidadRequeridaMixin, View):
         """Lo que la categoría abierta ya tiene adentro, para poder revisarlo."""
         if abierta is None:
             return None
-        return abierta.productos.order_by('nombre')
+        # Solo se listan código y descripción: la foto no tiene por qué venir.
+        return abierta.productos.defer('foto').order_by('nombre')
 
     def _articulos(self, request, abierta):
         """Los artículos que se ofrecen para mover a la categoría abierta.
@@ -479,7 +480,8 @@ class CategoriasView(CapacidadRequeridaMixin, View):
             return None
         qs = (Producto.objects.filter(activo=True)
               .exclude(categoria=abierta)
-              .select_related('categoria'))
+              .select_related('categoria')
+              .defer('foto'))
         q = request.GET.get('q', '').strip()
         if q:
             qs = qs.filter(Q(nombre__icontains=q) | Q(codigo__icontains=q))

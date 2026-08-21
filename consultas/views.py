@@ -169,8 +169,12 @@ class ConsultaEditView(ConsultaAccesoMixin, View):
 class CotizacionView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'lineas__producto')
+        # defer de la foto: son medio mega cada una y esta pantalla no las
+        # muestra —el <img> las pide al endpoint aparte—, así que traer los
+        # binarios de los 740 artículos es cargar decenas de megas al vacío.
         productos = (Producto.objects.filter(activo=True)
                      .select_related('categoria')
+                     .defer('foto')
                      .order_by('categoria__nombre', 'nombre'))
         # Esta pantalla arma el selector en el template, con las opciones
         # agrupadas por categoría; no necesita los productos en JSON.
@@ -360,8 +364,10 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
 
     def _render(self, request, cliente, fecha_str=None, post=None):
         import datetime
+        # Ídem: el preview de la foto la pide al endpoint, no va en el HTML.
         productos = list(Producto.objects.filter(activo=True)
                          .select_related('categoria')
+                         .defer('foto')
                          .order_by('categoria__nombre', 'nombre'))
         return render(request, 'consultas/nueva_cotizacion.html', {
             'cliente': cliente,
