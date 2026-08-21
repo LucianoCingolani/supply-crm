@@ -126,6 +126,10 @@
              class="px-6 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
             Volver sin guardar
           </a>
+          <a href="{% url 'productos:borrar' producto.pk %}"
+             class="ml-auto px-4 py-2 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50">
+            Eliminar del catálogo
+          </a>
         </div>
       </div>
     </div>

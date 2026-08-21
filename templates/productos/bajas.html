@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Dados de baja - Catálogo{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Artículos dados de baja</h1>
+      <p class="text-sm text-gray-500 mt-1">
+        {{ productos|length }} artículo{{ productos|length|pluralize }} fuera del catálogo.
+        Siguen guardados con su foto y sus especificaciones.
+      </p>
+    </div>
+    <a href="{% url 'productos:catalogo' %}"
+       class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+      Ver el catálogo
+    </a>
+  </div>
+
+  {% if productos %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-100 text-sm">
+      <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <tr>
+          <th class="px-5 py-3 text-left">Código</th>
+          <th class="px-5 py-3 text-left">Descripción</th>
+          <th class="px-5 py-3 text-left">Categoría</th>
+          <th class="px-5 py-3 text-right">Precio</th>
+          <th class="px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for p in productos %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-5 py-3 font-mono text-xs text-gray-400">{{ p.codigo }}</td>
+          <td class="px-5 py-3 text-gray-900">{{ p.nombre }}</td>
+          <td class="px-5 py-3 text-xs text-gray-500">
+            {% if p.categoria %}{{ p.categoria.nombre }}{% else %}Sin clasificar{% endif %}
+          </td>
+          <td class="px-5 py-3 text-right text-gray-600 whitespace-nowrap">
+            {% if p.precio %}{{ p.simbolo_moneda }} {{ p.precio|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+          <td class="px-5 py-3 text-right">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="producto" value="{{ p.pk }}">
+              <button type="submit"
+                      class="px-3 py-1.5 bg-white border border-gray-300 text-blue-600 text-xs font-medium rounded-lg hover:bg-blue-50 hover:border-blue-200 whitespace-nowrap">
+                Volver al catálogo
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center text-gray-400">
+    <p class="text-lg">No hay artículos dados de baja.</p>
+    <p class="text-sm mt-1">Los que saques del catálogo van a aparecer acá.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

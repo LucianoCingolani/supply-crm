@@ -128,6 +128,77 @@ class ProductoDetailView(LoginRequiredMixin, View):
         })
 
 
+class ProductoBorrarView(CapacidadRequeridaMixin, View):
+    """Saca un artículo del catálogo, de los mismos roles que lo editan.
+
+    Es una baja, no un DELETE. Las cotizaciones ya emitidas siguen citando el
+    artículo —la línea guarda su propia descripción y precio, pero la foto y la
+    ficha las saca de acá— y volver a cargar una foto de medio mega con sus
+    especificaciones cuesta bastante más que un click de más. Así que el
+    artículo deja de aparecer en todas las pantallas y se puede reactivar.
+    """
+
+    capacidad = 'puede_editar_catalogo'
+
+    def get(self, request, pk):
+        producto = self.get_producto(pk)
+        return render(request, 'productos/confirmar_borrado.html', {
+            'producto': producto,
+            'cotizaciones': self.cotizaciones(producto),
+        })
+
+    def post(self, request, pk):
+        producto = self.get_producto(pk)
+        producto.activo = False
+        # auto_now no corre si updated_at no entra en update_fields.
+        producto.save(update_fields=['activo', 'updated_at'])
+        messages.success(
+            request,
+            f'"{producto.nombre}" salió del catálogo. Si hace falta, se '
+            f'reactiva desde Dados de baja.')
+        return redirect('productos:catalogo')
+
+    def get_producto(self, pk):
+        return get_object_or_404(Producto, pk=pk, activo=True)
+
+    def cotizaciones(self, producto):
+        """En cuántas cotizaciones figura, para decirlo antes de dar de baja."""
+        # Local: `productos` es la capa de abajo y no importa `consultas`.
+        from consultas.models import Consulta
+        return (Consulta.objects
+                .filter(lineas__producto=producto)
+                .distinct()
+                .count())
+
+
+class BajasView(CapacidadRequeridaMixin, View):
+    """Los artículos dados de baja, para poder devolverlos al catálogo.
+
+    Sin esta pantalla la baja sería irreversible desde la web —el artículo
+    inactivo no entra ni a su propia ficha— y quedaría solo el admin de Django.
+    """
+
+    capacidad = 'puede_editar_catalogo'
+
+    def get(self, request):
+        return render(request, 'productos/bajas.html', {'productos': self.dados_de_baja()})
+
+    def post(self, request):
+        producto = get_object_or_404(
+            Producto, pk=request.POST.get('producto'), activo=False)
+        producto.activo = True
+        producto.save(update_fields=['activo', 'updated_at'])
+        messages.success(request, f'"{producto.nombre}" volvió al catálogo.')
+        return redirect('productos:bajas')
+
+    def dados_de_baja(self):
+        return (Producto.objects
+                .filter(activo=False)
+                .select_related('categoria')
+                .only('codigo', 'nombre', 'precio', 'moneda', 'updated_at',
+                      'categoria__nombre')
+                .order_by('nombre'))
+
 class PreciosView(CapacidadRequeridaMixin, View):
     """Mantenimiento de la lista de precios, sin tocar el resto de la ficha.
 

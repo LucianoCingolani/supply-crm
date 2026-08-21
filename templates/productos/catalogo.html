@@ -19,10 +19,15 @@
     </p>
   </div>
   {% if user.puede_editar_catalogo %}
-  <a href="{% url 'productos:create' %}"
-     class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
-    + Nuevo artículo
-  </a>
+  <div class="flex items-center gap-3">
+    <a href="{% url 'productos:bajas' %}" class="text-sm text-gray-400 hover:text-gray-600">
+      Dados de baja
+    </a>
+    <a href="{% url 'productos:create' %}"
+       class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+      + Nuevo artículo
+    </a>
+  </div>
   {% endif %}
 </div>
 

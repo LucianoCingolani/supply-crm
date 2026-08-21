@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Eliminar {{ producto.nombre }} - Catálogo{% endblock %}
+
+{% block content %}
+<div class="max-w-xl">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'productos:detail' producto.pk %}" class="text-gray-400 hover:text-gray-600">← Volver</a>
+    <h1 class="text-2xl font-bold text-gray-900">Eliminar del catálogo</h1>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-100 flex gap-4">
+      <div class="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 border border-gray-100">
+        {% if producto.foto %}
+        <img src="{% url 'consultas:producto_foto' producto.pk %}"
+             alt="{{ producto.nombre }}" class="max-w-full max-h-full object-contain p-1">
+        {% else %}
+        <span class="text-xs text-gray-300">Sin foto</span>
+        {% endif %}
+      </div>
+      <div class="min-w-0">
+        <p class="text-lg font-semibold text-gray-900 leading-snug">{{ producto.nombre }}</p>
+        <p class="text-sm font-mono text-gray-400 mt-1">{{ producto.codigo }}</p>
+        <p class="text-sm text-gray-500 mt-1">
+          {% if producto.categoria %}{{ producto.categoria.nombre }}{% else %}Sin clasificar{% endif %}
+          {% if producto.precio %}&middot; {{ producto.simbolo_moneda }} {{ producto.precio|floatformat:2 }}{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div class="px-6 py-5 bg-amber-50 border-b border-amber-100">
+      <p class="text-sm font-semibold text-amber-900">Qué pasa al eliminarlo</p>
+      <ul class="mt-3 space-y-2 text-sm text-amber-900">
+        <li class="flex items-start gap-2">
+          <span class="text-amber-400 mt-0.5">•</span>
+          <span>Deja de aparecer en el <strong>catálogo</strong>, en la <strong>lista de
+            precios</strong> y en el <strong>selector al armar una cotización</strong>.</span>
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-amber-400 mt-0.5">•</span>
+          {% if cotizaciones %}
+          <span><strong>Figura en {{ cotizaciones }} cotización{{ cotizaciones|pluralize:"es" }}</strong>,
+            que no se tocan: conservan su descripción, su precio y su foto tal como
+            se enviaron.</span>
+          {% else %}
+          <span>No figura en ninguna cotización, así que no hay historial en juego.</span>
+          {% endif %}
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-amber-400 mt-0.5">•</span>
+          <span>La foto, las especificaciones y el precio <strong>quedan guardados</strong>.
+            Se puede volver a poner en el catálogo desde
+            <a href="{% url 'productos:bajas' %}" class="underline font-medium">Dados de baja</a>.</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="px-6 py-4 flex gap-3">
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit"
+                class="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+          Eliminar del catálogo
+        </button>
+      </form>
+      <a href="{% url 'productos:detail' producto.pk %}"
+         class="px-5 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+        Cancelar
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
