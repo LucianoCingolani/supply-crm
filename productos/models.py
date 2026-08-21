@@ -123,6 +123,20 @@ class Producto(models.Model):
         return simbolo(self.moneda)
 
     @property
+    def foto_version(self):
+        """Para versionar la URL de la foto.
+
+        La sirve un endpoint con caché de 7 días y la URL no cambia nunca, así
+        que sin esto el browser sigue mostrando la foto vieja después de
+        cambiarla o borrarla. Con el timestamp, la que no cambió se sigue
+        cacheando y la que cambió se pide de nuevo.
+
+        En milisegundos y no en segundos: dos guardados dentro del mismo
+        segundo dejarían la misma URL y la foto nueva no se vería.
+        """
+        return int(self.updated_at.timestamp() * 1000) if self.updated_at else 0
+
+    @property
     def foto_data_uri(self):
         if self.foto and self.foto_tipo:
             data = base64.b64encode(bytes(self.foto)).decode()

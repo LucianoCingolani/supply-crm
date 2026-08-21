@@ -85,7 +85,7 @@ class CatalogoView(LoginRequiredMixin, View):
         una: traer los binarios de sesenta artículos para decidir si mostrar un
         ícono son cuarenta megas al horno.
         """
-        qs = (qs.only('codigo', 'nombre', 'precio', 'moneda')
+        qs = (qs.only('codigo', 'nombre', 'precio', 'moneda', 'updated_at')
                 .annotate(bytes_de_foto=Length('foto'))
                 .order_by('nombre'))
         return Paginator(qs, self.POR_PAGINA).get_page(request.GET.get('pagina'))
@@ -126,6 +126,31 @@ class ProductoDetailView(LoginRequiredMixin, View):
             'form': form if puede_editar else None,
             'categorias': categorias_existentes() if puede_editar else None,
         })
+
+
+class ProductoFotoBorrarView(CapacidadRequeridaMixin, View):
+    """Borra la imagen de un artículo, sin tocar el resto de la ficha.
+
+    Antes era un tilde dentro del formulario que además había que guardar, y el
+    botón de guardar está al pie de la otra columna: se tildaba, no pasaba nada
+    visible y parecía que no funcionaba. Ahora borra al apretarlo. Solo POST,
+    así ningún prefetch ni un link mal pegado se lleva una foto puesta.
+    """
+
+    capacidad = 'puede_editar_catalogo'
+
+    def post(self, request, pk):
+        producto = get_object_or_404(Producto, pk=pk, activo=True)
+        if producto.foto:
+            producto.foto = None
+            producto.foto_tipo = ''
+            # updated_at entra a mano: versiona la URL de la foto, que es lo
+            # que saca del caché del browser a la que acabamos de borrar.
+            producto.save(update_fields=['foto', 'foto_tipo', 'updated_at'])
+            messages.success(request, 'Imagen borrada.')
+        else:
+            messages.info(request, 'Ese artículo no tenía imagen.')
+        return redirect('productos:detail', pk=pk)
 
 
 class ProductoBorrarView(CapacidadRequeridaMixin, View):

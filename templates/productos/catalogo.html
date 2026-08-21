@@ -93,7 +93,7 @@
         <div class="h-40 bg-gray-50 flex items-center justify-center border-b border-gray-100 overflow-hidden">
           {% if p.bytes_de_foto %}
           <!-- Por URL y en diferido: las fotos pesan y no van a frenar la grilla. -->
-          <img src="{% url 'consultas:producto_foto' p.pk %}"
+          <img src="{% url 'consultas:producto_foto' p.pk %}?v={{ p.foto_version }}"
                alt="{{ p.nombre }}" loading="lazy"
                class="max-h-full max-w-full object-contain p-3 group-hover:scale-105 transition-transform duration-200">
           {% else %}

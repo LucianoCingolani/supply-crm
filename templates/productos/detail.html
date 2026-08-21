@@ -21,7 +21,7 @@
         <div class="h-56 flex items-center justify-center">
           {% if producto.foto %}
           <img id="foto-preview"
-               src="{% url 'consultas:producto_foto' producto.pk %}"
+               src="{% url 'consultas:producto_foto' producto.pk %}?v={{ producto.foto_version }}"
                alt="{{ producto.nombre }}"
                class="max-w-full max-h-full object-contain">
           {% else %}
@@ -43,10 +43,12 @@
           <p class="text-xs text-gray-400">{{ form.imagen.help_text }}</p>
           {% endif %}
           {% if producto.foto %}
-          <label class="flex items-center gap-2 cursor-pointer">
-            {{ form.borrar_foto }}
-            <span class="text-sm text-red-600">{{ form.borrar_foto.label }}</span>
-          </label>
+          <!-- form= lo manda al formulario chico del final: borra la imagen al
+               apretarlo, sin arrastrar ni pisar lo que se esté editando. -->
+          <button type="submit" form="form-borrar-foto"
+                  class="w-full px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50">
+            Borrar la imagen
+          </button>
           {% endif %}
         </div>
       </div>
@@ -137,6 +139,13 @@
 
 </form>
 
+{% if producto.foto %}
+<form id="form-borrar-foto" method="post"
+      action="{% url 'productos:borrar_foto' producto.pk %}">
+  {% csrf_token %}
+</form>
+{% endif %}
+
 <script>
   // Preview inmediato al seleccionar archivo
   document.getElementById('foto-input').addEventListener('change', function () {
@@ -167,7 +176,7 @@
     <!-- Foto -->
     <div class="md:w-80 bg-gray-50 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-gray-100 flex-shrink-0">
       {% if producto.foto %}
-      <img src="{% url 'consultas:producto_foto' producto.pk %}"
+      <img src="{% url 'consultas:producto_foto' producto.pk %}?v={{ producto.foto_version }}"
            alt="{{ producto.nombre }}"
            class="max-w-full max-h-64 object-contain">
       {% else %}

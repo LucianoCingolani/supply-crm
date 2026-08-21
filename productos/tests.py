@@ -270,6 +270,8 @@ class EditarDesdeLaFichaTest(TestCase):
 
 
 class ImagenDesdeLaFichaTest(TestCase):
+    """Subirla y reemplazarla. Borrarla tiene su propio botón: tests_foto."""
+
     def setUp(self):
         self.producto = Producto.objects.create(
             codigo='SA-001', nombre='Guante', moneda=ARS,
@@ -287,12 +289,6 @@ class ImagenDesdeLaFichaTest(TestCase):
         self.client.post(self.url, self.base(imagen=otra))
         self.producto.refresh_from_db()
         self.assertEqual(bytes(self.producto.foto), b'nuevos-bytes')
-
-    def test_la_borra(self):
-        self.client.post(self.url, self.base(borrar_foto='1'))
-        self.producto.refresh_from_db()
-        self.assertFalse(self.producto.foto)
-        self.assertEqual(self.producto.foto_tipo, '')
 
     def test_guardar_sin_tocar_la_imagen_no_la_pierde(self):
         self.client.post(self.url, self.base(nombre='Guante nuevo'))

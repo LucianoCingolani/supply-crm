@@ -13,7 +13,7 @@
     <div class="px-6 py-5 border-b border-gray-100 flex gap-4">
       <div class="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 border border-gray-100">
         {% if producto.foto %}
-        <img src="{% url 'consultas:producto_foto' producto.pk %}"
+        <img src="{% url 'consultas:producto_foto' producto.pk %}?v={{ producto.foto_version }}"
              alt="{{ producto.nombre }}" class="max-w-full max-h-full object-contain p-1">
         {% else %}
         <span class="text-xs text-gray-300">Sin foto</span>

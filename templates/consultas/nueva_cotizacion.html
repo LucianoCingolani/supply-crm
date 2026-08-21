@@ -244,6 +244,7 @@ function llenarSelector() {
     opt.dataset.nombre = p.nombre;
     opt.dataset.precio = p.precio;
     opt.dataset.moneda = p.moneda;
+    opt.dataset.fotoV = p.foto_v;
     if (cat) {
       selector.appendChild(opt);
       return;
@@ -274,7 +275,8 @@ selector.addEventListener('change', function() {
     if (precio > 0) addPrecio.value = precio.toFixed(2);
     if (opt.dataset.moneda) addMoneda.value = opt.dataset.moneda;
     // foto preview
-    const fotoUrl = "{% url 'consultas:producto_foto' 0 %}".replace('0', opt.value);
+    const fotoUrl = "{% url 'consultas:producto_foto' 0 %}".replace('0', opt.value)
+                    + '?v=' + (opt.dataset.fotoV || '');
     fotoPreview.src = fotoUrl;
     fotoPreview.classList.remove('hidden');
     fotoPreview.onerror = () => fotoPreview.classList.add('hidden');

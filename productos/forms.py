@@ -44,13 +44,6 @@ class ProductoForm(forms.ModelForm):
             'class': FILE_CLASS, 'accept': 'image/*', 'id': 'foto-input',
         }),
     )
-    borrar_foto = forms.BooleanField(
-        required=False,
-        label='Borrar la imagen actual',
-        widget=forms.CheckboxInput(attrs={
-            'class': 'w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400',
-        }),
-    )
 
     class Meta:
         model = Producto
@@ -100,7 +93,6 @@ class ProductoForm(forms.ModelForm):
             # y exigirla ahí sería un obstáculo sin motivo.
             self.fields['unidad_medida'].required = True
             self.fields['unidad_medida'].initial = 'UN'
-            del self.fields['borrar_foto']
 
     def clean_imagen(self):
         imagen = self.cleaned_data.get('imagen')
@@ -118,9 +110,8 @@ class ProductoForm(forms.ModelForm):
         if imagen:
             producto.foto = imagen.read()
             producto.foto_tipo = imagen.content_type or 'image/jpeg'
-        elif self.cleaned_data.get('borrar_foto'):
-            producto.foto = None
-            producto.foto_tipo = ''
+        # Borrar la imagen no pasa por acá: es su propio botón, porque dentro
+        # del formulario era un tilde que además había que guardar.
         if commit:
             producto.save()
         return producto

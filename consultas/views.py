@@ -56,6 +56,9 @@ def productos_para_selector(productos):
             'categoria': p.categoria.nombre if p.categoria_id else '',
             'precio': float(p.precio) if p.precio else 0,
             'moneda': p.moneda,
+            # Versiona la URL de la foto: sin esto el preview sigue mostrando
+            # la que se cambió, que el browser cachea una semana.
+            'foto_v': p.foto_version,
         }
         for p in productos
     ]
