@@ -85,9 +85,10 @@ class CatalogoView(LoginRequiredMixin, View):
         una: traer los binarios de sesenta artículos para decidir si mostrar un
         ícono son cuarenta megas al horno.
         """
-        qs = (qs.only('codigo', 'nombre', 'precio', 'moneda', 'updated_at')
+        qs = (qs.only('codigo', 'codigo_orden', 'nombre', 'precio', 'moneda',
+                      'updated_at')
                 .annotate(bytes_de_foto=Length('foto'))
-                .order_by('nombre'))
+                .order_by('codigo_orden', 'codigo'))
         return Paginator(qs, self.POR_PAGINA).get_page(request.GET.get('pagina'))
 
 
@@ -220,9 +221,9 @@ class BajasView(CapacidadRequeridaMixin, View):
         return (Producto.objects
                 .filter(activo=False)
                 .select_related('categoria')
-                .only('codigo', 'nombre', 'precio', 'moneda', 'updated_at',
-                      'categoria__nombre')
-                .order_by('nombre'))
+                .only('codigo', 'codigo_orden', 'nombre', 'precio', 'moneda',
+                      'updated_at', 'categoria__nombre')
+                .order_by('codigo_orden', 'codigo'))
 
 class PreciosView(CapacidadRequeridaMixin, View):
     """Mantenimiento de la lista de precios, sin tocar el resto de la ficha.
@@ -325,8 +326,9 @@ class PreciosView(CapacidadRequeridaMixin, View):
         # select_related porque la tabla muestra el nombre de la categoría en
         # cada una de las cien filas; sin él es una consulta por fila.
         qs = qs.select_related('categoria').only(
-            'codigo', 'nombre', 'categoria__nombre', 'precio', 'moneda',
-            'unidad_medida', 'updated_at').order_by('categoria__nombre', 'nombre')
+            'codigo', 'codigo_orden', 'nombre', 'categoria__nombre', 'precio',
+            'moneda', 'unidad_medida', 'updated_at').order_by(
+            'categoria__nombre', 'codigo_orden', 'codigo')
         return Paginator(qs, self.POR_PAGINA).get_page(request.GET.get('pagina'))
 
     def contexto(self, request, pagina=None, productos=None, errores=None):
@@ -468,7 +470,7 @@ class CategoriasView(CapacidadRequeridaMixin, View):
         if abierta is None:
             return None
         # Solo se listan código y descripción: la foto no tiene por qué venir.
-        return abierta.productos.defer('foto').order_by('nombre')
+        return abierta.productos.defer('foto').order_by('codigo_orden', 'codigo')
 
     def _articulos(self, request, abierta):
         """Los artículos que se ofrecen para mover a la categoría abierta.
@@ -488,7 +490,7 @@ class CategoriasView(CapacidadRequeridaMixin, View):
         else:
             # Sin búsqueda, lo primero que se quiere ver son los sin clasificar.
             qs = qs.filter(categoria=None)
-        return qs.order_by('categoria__nombre', 'nombre')[:200]
+        return qs.order_by('categoria__nombre', 'codigo_orden', 'codigo')[:200]
 
 
 class ProductoCreateView(CapacidadRequeridaMixin, View):

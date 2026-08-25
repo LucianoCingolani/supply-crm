@@ -8,7 +8,7 @@ class ProductoAdmin(admin.ModelAdmin):
     list_filter = ['categoria', 'unidad_medida', 'moneda', 'activo']
     search_fields = ['codigo', 'nombre', 'categoria__nombre']
     list_editable = ['activo']
-    ordering = ['categoria__nombre', 'nombre']
+    ordering = ['categoria__nombre', 'codigo_orden']
 
 
 @admin.register(Categoria)

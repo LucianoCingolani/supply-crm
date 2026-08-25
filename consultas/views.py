@@ -175,7 +175,7 @@ class CotizacionView(ConsultaAccesoMixin, View):
         productos = (Producto.objects.filter(activo=True)
                      .select_related('categoria')
                      .defer('foto')
-                     .order_by('categoria__nombre', 'nombre'))
+                     .order_by('categoria__nombre', 'codigo_orden', 'codigo'))
         # Esta pantalla arma el selector en el template, con las opciones
         # agrupadas por categoría; no necesita los productos en JSON.
         return render(request, 'consultas/cotizacion.html', {
@@ -368,7 +368,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
         productos = list(Producto.objects.filter(activo=True)
                          .select_related('categoria')
                          .defer('foto')
-                         .order_by('categoria__nombre', 'nombre'))
+                         .order_by('categoria__nombre', 'codigo_orden', 'codigo'))
         return render(request, 'consultas/nueva_cotizacion.html', {
             'cliente': cliente,
             'productos': productos,

@@ -1,4 +1,5 @@
 import base64
+import re
 
 from django.db import models
 
@@ -38,6 +39,44 @@ UNIDADES_MEDIDA = [
 ]
 
 
+# Ancho al que se rellenan los números del código para ordenar. Nueve dígitos
+# alcanzan para cualquier código real y dejan margen de sobra.
+ANCHO_NUMERO = 9
+
+
+def clave_de_orden(codigo):
+    """El código en la forma que lo hace ordenar por medida y no por dígito.
+
+    La base compara texto carácter por carácter, así que 'SA-10' cae antes de
+    'SA-2' —'1' es menor que '2'— y una familia sale desordenada justo en la
+    parte que interesa, que es la medida. Rellenando con ceros cada tanda de
+    dígitos a un ancho fijo, el orden alfabético pasa a ser el numérico sin que
+    la base tenga que saber nada del formato del código: 'SA-000000002' antes
+    de 'SA-000000010'.
+
+    En mayúsculas porque 'sa-1' y 'SA-1' son la misma familia escrita distinto,
+    y si difieren solo en eso tienen que quedar juntas igual.
+    """
+    partes = re.split(r'(\d+)', (codigo or '').upper())
+    return ''.join(p.zfill(ANCHO_NUMERO) if p.isdigit() else p for p in partes)
+
+
+class ClaveDeOrdenField(models.CharField):
+    """Mantiene la clave derivada del código en todos los caminos de escritura.
+
+    Es un campo propio y no un `save()` sobreescrito porque el importador crea
+    los artículos con `bulk_create`, que no llama a `save()` pero sí al
+    `pre_save()` de cada campo. Así no queda forma de dar de alta un artículo
+    sin clave. El que no cubre es `bulk_update`, pero ninguno de los que hay
+    toca el código.
+    """
+
+    def pre_save(self, model_instance, add):
+        valor = clave_de_orden(model_instance.codigo)
+        setattr(model_instance, self.attname, valor)
+        return valor
+
+
 class Categoria(models.Model):
     """Las secciones del catálogo.
 
@@ -72,6 +111,11 @@ class Categoria(models.Model):
 
 class Producto(models.Model):
     codigo = models.CharField(max_length=50, unique=True, verbose_name='Código')
+    # Derivado de `codigo`, lo mantiene el propio campo. Está en la base y no
+    # se calcula al vuelo porque es la columna por la que ordena y pagina el
+    # catálogo, y eso lo tiene que hacer la base.
+    codigo_orden = ClaveDeOrdenField(
+        max_length=450, default='', editable=False, db_index=True)
     nombre = models.CharField(max_length=300, verbose_name='Nombre')
     unidad_medida = models.CharField(
         max_length=10, blank=True,
@@ -111,7 +155,7 @@ class Producto(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['categoria__nombre', 'nombre']
+        ordering = ['categoria__nombre', 'codigo_orden']
         verbose_name = 'producto'
         verbose_name_plural = 'productos'
 
