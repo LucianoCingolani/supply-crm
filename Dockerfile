@@ -2,10 +2,10 @@ FROM python:3.12-slim
 
 # WeasyPrint system dependencies (pango, cairo, fontconfig)
 #
-# Las fuentes no son opcionales: el modelo de cotización usa Calibri y Segoe UI,
-# que son de Microsoft y no vienen en la imagen. Carlito es métricamente
-# compatible con Calibri y DejaVu cubre Segoe UI; sin ellas WeasyPrint cae en
-# una fuente cualquiera y el PDF sale con otro cuerpo y otro ancho de línea.
+# La fuente no es opcional: la cotización pide Arial/Helvetica, que no vienen en
+# la imagen, y sin ninguna familia sans instalada WeasyPrint cae en lo que haya
+# y el PDF sale con otro cuerpo y otro ancho de línea. DejaVu es la sustituta
+# que resuelve fontconfig.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     libfontconfig1 \
     shared-mime-info \
-    fonts-crosextra-carlito \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 

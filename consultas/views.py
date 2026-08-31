@@ -229,10 +229,11 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
         consulta = self.get_consulta(pk, 'lineas__producto')
 
-        # El PDF ya no imprime totales, pero sí el precio de cada línea llevado
-        # a la moneda de la cotización. Sin tipo de cambio esa conversión no se
-        # puede hacer, y un precio en blanco o mal convertido va al cliente.
-        if consulta.totales() is None:
+        # El PDF imprime los totales y el precio de cada línea en la moneda de
+        # la cotización. Sin tipo de cambio esa conversión no se puede hacer, y
+        # un precio en blanco o mal convertido va al cliente.
+        totales = consulta.totales()
+        if totales is None:
             messages.error(
                 request,
                 'La cotización mezcla pesos y dólares. Cargá el tipo de cambio '
@@ -242,6 +243,7 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
 
         html = render_to_string('consultas/cotizacion_pdf.html', {
             'consulta': consulta,
+            'totales': totales,
             'request': request,
             **membrete.contexto(),
         })

@@ -178,6 +178,7 @@ class HTMLDelPDFTest(TestCase):
         from consultas import membrete
         return render_to_string('consultas/cotizacion_pdf.html', {
             'consulta': consulta,
+            'totales': consulta.totales(),
             **membrete.contexto(),
         })
 
@@ -187,25 +188,25 @@ class HTMLDelPDFTest(TestCase):
 
         html = self._html(c)
         self.assertNotIn('u$s', html)
-        self.assertIn('$ 1.000 + IVA', html)
+        self.assertIn('$ 1.000,00 + IVA', html)
 
     def test_una_cotizacion_en_dolares_lo_dice(self):
         c = consulta_de(self.user, self.cliente, moneda=USD)
         linea(c, '250', USD)
 
-        self.assertIn('u$s 250 + IVA', self._html(c))
+        self.assertIn('u$s 250,00 + IVA', self._html(c))
 
     def test_imprime_los_montos_ya_convertidos(self):
         c = consulta_de(self.user, self.cliente, moneda=ARS, tipo_cambio=Decimal('1000'))
         linea(c, '10', USD)  # = 10.000 pesos
 
         html = self._html(c)
-        self.assertIn('$ 10.000 + IVA', html)
+        self.assertIn('$ 10.000,00 + IVA', html)
         self.assertNotIn('u$s', html)
 
-    def test_conserva_los_centavos_cuando_existen(self):
-        """El modelo escribe "$ 87.500", pero un precio en dólares suele tener
-        centavos y perderlos sería cotizar otro número."""
+    def test_conserva_los_centavos(self):
+        """Un precio en dólares suele tener centavos y perderlos sería cotizar
+        otro número."""
         c = consulta_de(self.user, self.cliente, moneda=USD)
         linea(c, '49.50', USD)
 

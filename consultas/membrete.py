@@ -1,10 +1,11 @@
-"""Las imágenes fijas del PDF de cotización, listas para embeber.
+"""El membrete del PDF de cotización, listo para embeber.
 
 WeasyPrint no resuelve URLs de `{% static %}`: necesita el archivo o los bytes.
-Se embeben como data URI, igual que la foto del producto, así el PDF no depende
+Se embebe como data URI, igual que la foto del producto, así el PDF no depende
 de que el static esté servido ni de que haya red al generarlo.
 
-Las imágenes son las del modelo que aprobó el gerente, extraídas de su .docx.
+Es la imagen que usa la empresa, con la marca, el CUIT, la dirección y los tres
+sitios: el documento no dibuja un logo propio.
 """
 
 import base64
@@ -17,9 +18,6 @@ from django.conf import settings
 DIRECTORIO = pathlib.Path(settings.BASE_DIR) / 'theme' / 'static' / 'img' / 'cotizacion'
 
 MEMBRETE = 'membrete.jpg'
-# Las tres tiras de familias de producto que van al pie, en orden de izquierda
-# a derecha, tal como están en el modelo.
-FAMILIAS = ['familias1.jpeg', 'familias2.jpeg', 'familias3.jpeg']
 
 
 @functools.lru_cache(maxsize=8)
@@ -33,8 +31,5 @@ def data_uri(nombre):
 
 
 def contexto():
-    """Lo que el template necesita para dibujar membrete y pie."""
-    return {
-        'img_membrete': data_uri(MEMBRETE),
-        'img_familias': [data_uri(n) for n in FAMILIAS],
-    }
+    """Lo que el template necesita para dibujar el membrete."""
+    return {'img_membrete': data_uri(MEMBRETE)}
