@@ -27,6 +27,90 @@
     </div>
 </div>
 
+<!-- Mis consultas — el seguimiento propio: qué tengo abierto, desde cuándo está
+     quieto y cuándo toca volver a llamar. Va arriba porque es lo accionable;
+     los gráficos de abajo son la foto general. -->
+{% if mis_consultas or user.puede_cargar_ventas %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+        <div>
+            <h2 class="font-semibold text-gray-700">Mis consultas activas</h2>
+            <p class="text-xs text-gray-400 mt-0.5">
+                Las más quietas primero. El tiempo corre desde el último seguimiento;
+                si todavía no tuvo ninguno, desde que se cargó.
+            </p>
+        </div>
+        <a href="{% url 'consultas:list' %}"
+           class="text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">Ver todas →</a>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-100 text-sm">
+            <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <tr>
+                    <th class="px-4 py-3 text-right w-24">Sin mover</th>
+                    <th class="px-4 py-3 text-left">Cliente</th>
+                    <th class="px-4 py-3 text-left">Productos</th>
+                    <th class="px-4 py-3 text-left">Estado</th>
+                    <th class="px-4 py-3 text-left">Recontactar</th>
+                    <th class="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for c in mis_consultas %}
+                <tr class="hover:bg-gray-50 {% if c.seguimiento_vencido %}bg-amber-50{% endif %}">
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <span class="font-semibold {% if c.dias_sin_movimiento >= 90 %}text-red-600{% elif c.dias_sin_movimiento >= umbral_fria %}text-amber-600{% else %}text-gray-500{% endif %}">
+                            {% if c.dias_sin_movimiento %}hace {{ c.dias_sin_movimiento }} d{% else %}hoy{% endif %}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-gray-900">{{ c.razon_social|default:c.contacto|default:"—" }}</div>
+                        <div class="text-xs text-gray-400">Cargada el {{ c.fecha|date:"d/m/Y" }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">{{ c.productos|truncatechars:45 }}</td>
+                    <td class="px-4 py-3">
+                        {% if c.estado == 'recontactar' %}
+                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Recontactar</span>
+                        {% else %}
+                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Cotizado</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-xs whitespace-nowrap">
+                        {% if c.fecha_seguimiento %}
+                            {% if c.seguimiento_vencido %}
+                            <span class="font-semibold text-amber-600">⚠ {{ c.fecha_seguimiento|date:"d/m/Y" }}</span>
+                            {% else %}
+                            <span class="text-gray-500">{{ c.fecha_seguimiento|date:"d/m/Y" }}</span>
+                            {% endif %}
+                        {% else %}
+                        <span class="text-gray-300">Sin fecha</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <a href="{% url 'consultas:detail' c.pk %}" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Ver →</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-10 text-center text-gray-400">
+                        No tenés consultas activas para seguir.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if mis_consultas_total > mis_consultas|length %}
+    <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500">
+        Mostrando las {{ mis_consultas|length }} más quietas de {{ mis_consultas_total }} activas ·
+        <a href="{% url 'consultas:list' %}" class="text-blue-600 hover:text-blue-800 font-medium">ver el resto</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
     <!-- Reparto por estado — parte de un todo -->

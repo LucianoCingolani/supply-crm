@@ -38,6 +38,20 @@ class ConsultaQuerySet(models.QuerySet):
             Q(cliente__vendedor=user) | Q(cliente__isnull=True, vendedor=user)
         )
 
+    def a_cargo_de(self, user):
+        """Acota a las que `user` tiene que seguir él: las que cargó y las de
+        los clientes de su cartera.
+
+        Para un empleado es todo lo que ve. La diferencia aparece con quien ve
+        las consultas de todos: el dashboard le muestra su propio seguimiento y
+        no el del equipo, que para eso está el panel.
+
+        Se combina con `visibles_para`, que es la que decide el permiso: una
+        consulta que cargó y que hoy cuelga de un cliente de otro vendedor
+        sigue estando fuera de su alcance.
+        """
+        return self.filter(Q(vendedor=user) | Q(cliente__vendedor=user))
+
     def activas(self):
         return self.filter(estado__in=Consulta.ESTADOS_ACTIVOS)
 

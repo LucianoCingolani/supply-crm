@@ -8,7 +8,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from consultas.models import Consulta
+from clientes.models import Cliente
+from consultas.models import Consulta, SeguimientoLog
 from reportes.graficos import PALETA, grafico_evolucion
 from reportes.metricas import (
     calcular_metricas,
@@ -349,3 +350,113 @@ class PaletaTest(TestCase):
     def test_los_rellenos_son_todos_distintos(self):
         rellenos = [c['relleno'] for c in PALETA.values()]
         self.assertEqual(len(rellenos), len(set(rellenos)))
+
+
+class MiSeguimientoTest(BaseDashboardTest):
+    """"Mis consultas activas": qué tiene abierto cada uno, hace cuánto que está
+    quieto y cuándo dijo que iba a volver a llamar.
+    """
+
+    def crear(self, vendedor, estado=Consulta.COTIZADO, quieta_hace=0,
+              cliente=None, recontactar=None):
+        consulta = Consulta.objects.create(
+            productos='Pallets', estado=estado, vendedor=vendedor, cliente=cliente,
+            fecha=self.hoy - timedelta(days=quieta_hace),
+            fecha_seguimiento=recontactar,
+        )
+        if quieta_hace:
+            # created_at es auto_now_add: para simular una consulta vieja hay
+            # que escribirlo después.
+            Consulta.objects.filter(pk=consulta.pk).update(
+                created_at=timezone.now() - timedelta(days=quieta_hace))
+        return consulta
+
+    def seguir(self, consulta, user, hace_dias=0):
+        log = SeguimientoLog.objects.create(consulta=consulta, user=user, nota='Llamé')
+        if hace_dias:
+            SeguimientoLog.objects.filter(pk=log.pk).update(
+                fecha=timezone.now() - timedelta(days=hace_dias))
+        return log
+
+    def respuesta(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse('dashboard'))
+
+    def mis(self, user):
+        return self.respuesta(user).context['mis_consultas']
+
+    def test_el_empleado_ve_sus_consultas_abiertas(self):
+        mia = self.crear(self.emp_a)
+        self.assertEqual([c.pk for c in self.mis(self.emp_a)], [mia.pk])
+
+    def test_no_ve_las_de_un_companero(self):
+        self.crear(self.emp_b)
+        self.assertEqual(self.mis(self.emp_a), [])
+
+    def test_las_cerradas_quedan_afuera(self):
+        """Una facturada o una perdida no se sigue: ensucian la lista."""
+        abierta = self.crear(self.emp_a)
+        self.crear(self.emp_a, Consulta.FACTURADO)
+        self.crear(self.emp_a, Consulta.NO_COMPRA)
+        self.assertEqual([c.pk for c in self.mis(self.emp_a)], [abierta.pk])
+
+    def test_recontactar_cuenta_como_abierta(self):
+        pendiente = self.crear(self.emp_a, Consulta.RECONTACTAR)
+        self.assertEqual([c.pk for c in self.mis(self.emp_a)], [pendiente.pk])
+
+    def test_los_dias_se_cuentan_desde_que_se_cargo(self):
+        self.crear(self.emp_a, quieta_hace=45)
+        self.assertEqual(self.mis(self.emp_a)[0].dias_sin_movimiento, 45)
+
+    def test_un_seguimiento_reinicia_el_reloj(self):
+        """El punto es cuánto hace que no se la toca, no cuándo entró."""
+        consulta = self.crear(self.emp_a, quieta_hace=45)
+        self.seguir(consulta, self.emp_a, hace_dias=3)
+        self.assertEqual(self.mis(self.emp_a)[0].dias_sin_movimiento, 3)
+
+    def test_las_mas_quietas_van_primero(self):
+        nueva = self.crear(self.emp_a, quieta_hace=1)
+        vieja = self.crear(self.emp_a, quieta_hace=120)
+        media = self.crear(self.emp_a, quieta_hace=30)
+        self.assertEqual([c.pk for c in self.mis(self.emp_a)],
+                         [vieja.pk, media.pk, nueva.pk])
+
+    def test_quien_ve_las_de_todos_igual_ve_solo_las_suyas(self):
+        """El gerente ve la cartera del equipo en el panel; acá va su seguimiento."""
+        self.crear(self.emp_a)
+        suya = self.crear(self.gerente)
+        self.assertEqual([c.pk for c in self.mis(self.gerente)], [suya.pk])
+
+    def test_incluye_las_de_su_cartera_aunque_las_haya_cargado_otro(self):
+        """Al recibir un cliente hereda su seguimiento, no arranca de cero."""
+        cliente = Cliente.objects.create(razon_social='ACME SRL', vendedor=self.emp_a)
+        heredada = self.crear(self.gerente, cliente=cliente)
+        self.assertEqual([c.pk for c in self.mis(self.emp_a)], [heredada.pk])
+
+    def test_corta_la_lista_pero_dice_cuantas_hay(self):
+        from reportes.views import DashboardView
+        total = DashboardView.MAX_SEGUIMIENTO + 3
+        for _ in range(total):
+            self.crear(self.emp_a, quieta_hace=10)
+
+        contexto = self.respuesta(self.emp_a).context
+        self.assertEqual(len(contexto['mis_consultas']), DashboardView.MAX_SEGUIMIENTO)
+        self.assertEqual(contexto['mis_consultas_total'], total)
+
+    def test_muestra_cuando_hay_que_recontactar(self):
+        self.crear(self.emp_a, recontactar=self.hoy + timedelta(days=5))
+        cuerpo = self.respuesta(self.emp_a).content.decode()
+        self.assertIn((self.hoy + timedelta(days=5)).strftime('%d/%m/%Y'), cuerpo)
+
+    def test_marca_el_recontacto_vencido(self):
+        vencida = self.crear(self.emp_a, recontactar=self.hoy - timedelta(days=2))
+        self.assertTrue(vencida.seguimiento_vencido)
+        self.assertIn('⚠', self.respuesta(self.emp_a).content.decode())
+
+    def test_sin_fecha_de_recontacto_no_inventa_una(self):
+        self.crear(self.emp_a)
+        self.assertIn('Sin fecha', self.respuesta(self.emp_a).content.decode())
+
+    def test_sin_consultas_activas_lo_dice(self):
+        self.assertIn('No tenés consultas activas',
+                      self.respuesta(self.emp_a).content.decode())

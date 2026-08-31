@@ -287,6 +287,33 @@ def consultas_frias(user, hoy, vendedor=None, limite=None):
     if vendedor is not None:
         qs = qs.filter(vendedor=vendedor)
 
+    return _con_dias_sin_movimiento(qs, hoy, limite)
+
+
+def mi_seguimiento(user, hoy, limite=None):
+    """El seguimiento propio de `user`: (consultas, total).
+
+    Son sus consultas activas, las más quietas primero, cada una con
+    `dias_sin_movimiento` — desde el último seguimiento registrado, o desde que
+    se cargó si todavía no tuvo ninguno. Es lo que necesita para saber a quién
+    le debe una llamada y desde cuándo.
+
+    El total viene aparte porque la lista va cortada: el dashboard muestra un
+    puñado y avisa cuántas quedan afuera.
+    """
+    qs = (
+        Consulta.objects.visibles_para(user)
+        .a_cargo_de(user)
+        .activas()
+        .con_ultimo_movimiento()
+        .select_related('cliente')
+        .order_by('ultimo_movimiento')
+    )
+    return _con_dias_sin_movimiento(qs, hoy, limite), qs.count()
+
+
+def _con_dias_sin_movimiento(qs, hoy, limite=None):
+    """Materializa la lista y le cuelga a cada consulta los días que lleva quieta."""
     consultas = list(qs[:limite] if limite else qs)
     for consulta in consultas:
         consulta.dias_sin_movimiento = (hoy - consulta.ultimo_movimiento.date()).days

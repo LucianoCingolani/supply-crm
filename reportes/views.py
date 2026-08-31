@@ -18,6 +18,7 @@ from .metricas import (
     empleados_visibles,
     evolucion_mensual,
     fecha_desde,
+    mi_seguimiento,
     reparto_por_estado,
 )
 
@@ -29,6 +30,9 @@ class DashboardView(LoginRequiredMixin, View):
     al resto, los suyos propios."""
 
     MESES_EVOLUCION = 6
+    # Filas de "mis consultas". Es la parte de arriba de la lista, la que más
+    # espera; el resto se sigue desde el listado de consultas.
+    MAX_SEGUIMIENTO = 10
 
     def get(self, request):
         # Tesorería no tiene nada que hacer acá: todo lo que muestra son
@@ -50,10 +54,19 @@ class DashboardView(LoginRequiredMixin, View):
             .order_by('fecha_seguimiento')[:10]
         )
 
+        # El seguimiento propio: qué tiene abierto cada uno y desde cuándo está
+        # quieto. Va para todos, no solo para el empleado: quien ve las de todo
+        # el equipo igual trabaja su propia cartera.
+        mis_consultas, mis_consultas_total = mi_seguimiento(
+            request.user, hoy, limite=self.MAX_SEGUIMIENTO)
+
         filas_evolucion = evolucion_mensual(request.user, hoy, self.MESES_EVOLUCION)
         contexto = {
             'stats': stats,
             'pendientes': pendientes,
+            'mis_consultas': mis_consultas,
+            'mis_consultas_total': mis_consultas_total,
+            'umbral_fria': UMBRAL_FRIA,
             'paleta': PALETA,
             # Los colores se resuelven acá: el template no puede indexar un dict
             # por una clave dinámica.
