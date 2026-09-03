@@ -11,6 +11,7 @@ marca la pone el membrete real de la empresa.
 """
 
 import datetime
+import re
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -100,12 +101,16 @@ class EncabezadoTest(BasePDFTest):
         self.assertIn('ACME SRL', html)
 
     def test_imprime_el_cuit(self):
-        self.assertIn('CUIT / CUIL: 30-71234567-8', self.html())
+        """CUIT nomás: la etiqueta "CUIT / CUIL" obligaba al cliente a leer dos
+        siglas para un solo número."""
+        html = self.html()
+        self.assertIn('CUIT: 30-71234567-8', html)
+        self.assertNotIn('CUIL', html)
 
     def test_sin_cuit_no_deja_la_etiqueta_colgando(self):
         self.consulta.cuit = ''
         self.consulta.save()
-        self.assertNotIn('CUIT / CUIL', self.html())
+        self.assertNotIn('CUIT:', self.html())
 
     def test_usa_la_razon_social_copiada_en_la_consulta(self):
         """Así el PDF sigue nombrando al cliente aunque después se lo borre."""
@@ -352,6 +357,35 @@ class CondicionesTest(BasePDFTest):
 
     def test_no_van_justificadas(self):
         self.assertNotIn('text-align: justify', self.html())
+
+    def test_el_cierre_va_al_pie_de_la_hoja_y_centrado(self):
+        """Antes era la columna derecha de un bloque a dos columnas y quedaba
+        tirado a un costado, colgando del final de las condiciones."""
+        html = self.html()
+        firma = re.search(r'\.firma-block\s*\{([^}]*)\}', html)
+        self.assertIsNotNone(firma)
+        estilo = firma.group(1)
+        self.assertIn('position: absolute', estilo)
+        self.assertIn('bottom: 0', estilo)
+        self.assertIn('text-align: center', estilo)
+        self.assertNotIn('columns: 2', estilo)
+
+    def test_la_hoja_de_condiciones_mide_el_area_imprimible(self):
+        """Es lo que le da referencia al cierre para anclarse al pie: sin una
+        altura definida, `bottom: 0` no tiene contra qué medir."""
+        html = self.html()
+        hoja = re.search(r'\.hoja-condiciones\s*\{([^}]*)\}', html)
+        self.assertIsNotNone(hoja)
+        self.assertIn('position: relative', hoja.group(1))
+
+        alto = re.search(r'height:\s*([\d.]+)cm', hoja.group(1))
+        self.assertIsNotNone(alto)
+        # margin: <arriba> <lat> <abajo> <lat>
+        margenes = re.search(
+            r'@page\s*\{[^}]*margin:\s*([\d.]+)cm\s+[\d.]+cm\s+([\d.]+)cm', html)
+        self.assertIsNotNone(margenes)
+        arriba, abajo = float(margenes.group(1)), float(margenes.group(2))
+        self.assertAlmostEqual(float(alto.group(1)), 29.7 - arriba - abajo, places=2)
 
 
 class GuardaTipoDeCambioTest(BasePDFTest):

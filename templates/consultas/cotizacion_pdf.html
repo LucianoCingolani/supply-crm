@@ -194,6 +194,18 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 /* ══════════════════════════════════════════════════
    PÁGINA DE CONDICIONES
 ══════════════════════════════════════════════════ */
+/* Alta exactamente como el área imprimible: A4 (29,7cm) menos los márgenes de
+   @page (1,4 arriba + 2,2 abajo). Es lo que le da referencia al cierre para
+   anclarse al pie de la hoja.
+
+   El anclaje va con posición absoluta y no con `margin-top: auto` en un flex:
+   WeasyPrint no reparte el espacio libre así y el bloque quedaba pegado al
+   final de las condiciones, que es justamente lo que se quería corregir. */
+.hoja-condiciones {
+  page-break-before: always;
+  position: relative;
+  height: 26.1cm;
+}
 .cond-title {
   font-size: 12pt; font-weight: 900; color: #1a5c2e;
   border-bottom: 2px solid #1a5c2e;
@@ -210,14 +222,21 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 }
 .cond-item b { color: #1a5c2e; }
 
+/* Al pie de la hoja y centrado: es el cierre de la carta, no una columna al
+   costado de las condiciones. */
 .firma-block {
-  margin-top: 16px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-top: 14px;
+  /* Aire contra la línea roja del pie, que arranca apenas abajo. */
+  padding-bottom: 8px;
   border-top: 1px solid #e0e0e0;
-  padding-top: 12px;
-  columns: 2; column-gap: 22px;
+  text-align: center;
 }
-.firma-saludo { font-size: 9.5pt; font-weight: bold; color: #111; break-inside: avoid; margin-bottom: 4px; }
-.firma-contact { font-size: 8.5pt; color: #555; line-height: 1.8; break-inside: avoid; }
+.firma-saludo { font-size: 9.5pt; font-weight: bold; color: #111; margin-bottom: 5px; }
+.firma-contact { font-size: 8.5pt; color: #555; line-height: 1.7; }
 
 </style>
 </head>
@@ -251,7 +270,7 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 
 <div class="quote-client">
   <span class="qc-name">{{ consulta.nombre_del_cliente|default:"Cliente" }}</span>
-  {% if consulta.cuit %}<span class="qc-cuit">CUIT / CUIL: {{ consulta.cuit }}</span>{% endif %}
+  {% if consulta.cuit %}<span class="qc-cuit">CUIT: {{ consulta.cuit }}</span>{% endif %}
 </div>
 
 <table class="t-precios">
@@ -342,7 +361,7 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 <!-- ═══════════════════════════════════════════════
      CONDICIONES DE SUMINISTRO
 ══════════════════════════════════════════════════ -->
-<div style="page-break-before: always;">
+<div class="hoja-condiciones">
 
   <div class="cond-title">Condiciones de suministro</div>
 
@@ -410,7 +429,7 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
     <div class="firma-saludo">Esperamos su favorable respuesta — {{ consulta.vendedor.get_full_name|default:consulta.vendedor.email }}, Dpto. Ventas</div>
     <div class="firma-contact">
       comercial@supplyargentina.com.ar &nbsp;·&nbsp; info@supplyargentina.com.ar<br>
-      supplyargentina.com.ar &nbsp;·&nbsp; palletplastico.com.ar &nbsp;·&nbsp; apsaindustrial.com.ar<br>
+      supplyargentina.com.ar &nbsp;·&nbsp; palletsplasticos.com.ar &nbsp;·&nbsp; apsaindustrial.com.ar<br>
       Neuquén 4044 – Villa Ballester – Buenos Aires
     </div>
   </div>
