@@ -83,6 +83,28 @@ class EncabezadoTest(BasePDFTest):
         self.assertIn('Buenos Aires, Villa Ballester, 17 de julio de 2026',
                       self.html())
 
+    def test_septiembre_no_setiembre(self):
+        """Las dos formas son correctas, pero la cotización dice "septiembre".
+        La traducción es_AR de Django escribe "setiembre", así que el mes no
+        puede salir del locale."""
+        self.consulta.fecha = datetime.date(2026, 9, 11)
+        self.consulta.save()
+
+        html = self.html()
+        self.assertIn('11 de septiembre de 2026', html)
+        self.assertNotIn('setiembre', html)
+
+    def test_todos_los_meses_salen_en_castellano(self):
+        esperados = [
+            'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+            'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+        ]
+        for mes, nombre in enumerate(esperados, start=1):
+            with self.subTest(mes=mes):
+                self.consulta.fecha = datetime.date(2026, mes, 5)
+                self.consulta.save()
+                self.assertIn(f'5 de {nombre} de 2026', self.html())
+
     def test_el_numero_de_cotizacion(self):
         self.assertIn('Cotización N° 1914', self.html())
 

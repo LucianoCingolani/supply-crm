@@ -264,7 +264,7 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 </div>
 
 <div class="quote-topline">
-  <span class="quote-date">Buenos Aires, Villa Ballester, {{ consulta.fecha|date:"j \d\e F \d\e Y" }}</span>
+  <span class="quote-date">Buenos Aires, Villa Ballester, {{ consulta.fecha|fecha_larga }}</span>
   <span class="quote-number">{% if consulta.numero_cotizacion %}Cotización N° {{ consulta.numero_cotizacion }}{% else %}Cotización{% endif %}</span>
 </div>
 
