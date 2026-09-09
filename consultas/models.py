@@ -71,6 +71,11 @@ class ConsultaQuerySet(models.QuerySet):
         Es lo que la lista necesita para distinguir de un vistazo la consulta a
         la que ya se le cotizó de la que quedó sin cotizar. `estado` no lo
         contesta: nace en "cotizado" el día que se carga la consulta.
+
+        Repite el orden del Meta y no por gusto: el annotate agrega un GROUP BY
+        y con eso Django deja de aplicar el ordering del Meta, así que sin esto
+        las consultas salen en el orden que quiera la base. Va acá y no en la
+        vista para que no se lo pueda olvidar quien llame al método.
         """
         return self.annotate(
             cotizaciones_count=Count('cotizaciones', distinct=True),
@@ -79,7 +84,7 @@ class ConsultaQuerySet(models.QuerySet):
             # no tener nada: decirle "Sin cotizar" a una consulta con las líneas
             # cargadas es mentirle al que mira la columna.
             lineas_count=Count('lineas', distinct=True),
-        )
+        ).order_by('-fecha', '-created_at')
 
 
 class Consulta(models.Model):

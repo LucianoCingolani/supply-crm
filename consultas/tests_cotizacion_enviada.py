@@ -261,6 +261,37 @@ class ListaTest(BaseTest):
 
         self.assertEqual(self.lista(cotizacion='enviada').context['consultas'], [])
 
+    def test_las_mas_recientes_van_arriba(self):
+        """La anotación no tiene que costarle el orden a la lista.
+
+        `annotate` agrega un GROUP BY y con eso Django deja de aplicar el
+        ordering del Meta: sin un order_by explícito las consultas salen en el
+        orden que quiera la base.
+        """
+        vieja = Consulta.objects.create(
+            productos='La de enero', cliente=self.cliente, vendedor=self.user,
+            fecha=datetime.date(2026, 1, 5))
+        nueva = Consulta.objects.create(
+            productos='La de agosto', cliente=self.cliente, vendedor=self.user,
+            fecha=datetime.date(2026, 8, 20))
+
+        # self.consulta es del 17/07/2026: la nueva arriba, la vieja al fondo.
+        self.assertEqual(
+            [c.pk for c in self.lista().context['consultas']],
+            [nueva.pk, self.consulta.pk, vieja.pk])
+
+    def test_el_orden_aguanta_con_el_filtro_puesto(self):
+        antigua = Consulta.objects.create(
+            productos='Antigua', cliente=self.cliente, vendedor=self.user,
+            fecha=datetime.date(2026, 2, 2))
+        reciente = Consulta.objects.create(
+            productos='Reciente', cliente=self.cliente, vendedor=self.user,
+            fecha=datetime.date(2026, 9, 1))
+
+        consultas = self.lista(cotizacion='sin').context['consultas']
+        self.assertEqual([c.pk for c in consultas],
+                         [reciente.pk, self.consulta.pk, antigua.pk])
+
     def test_filtrar_por_enviada_deja_solo_las_confirmadas(self):
         registro = CotizacionGenerada.objects.create(
             consulta=self.consulta, generada_por=self.user, moneda=ARS)
