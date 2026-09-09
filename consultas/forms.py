@@ -66,3 +66,18 @@ class FiltroConsultaForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Empresa, contacto, producto...'})
     )
+    # La pregunta que el gerente no podía contestar: a quién le falta la
+    # cotización. `estado` no sirve para eso porque nace en "cotizado".
+    SIN_COTIZAR = 'sin'
+    GENERADA = 'generada'
+    ENVIADA = 'enviada'
+    cotizacion = forms.ChoiceField(
+        required=False,
+        choices=[
+            ('', 'Cotización: todas'),
+            (SIN_COTIZAR, 'Sin cotización enviada'),
+            (GENERADA, 'PDF generado, sin confirmar'),
+            (ENVIADA, 'Enviada al cliente'),
+        ],
+        widget=forms.Select(attrs={'class': SELECT_CLASS}),
+    )

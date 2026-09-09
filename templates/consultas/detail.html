@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load consultas_extras %}
 
 {% block title %}Consulta — {{ consulta.razon_social|default:consulta.contacto|default:"Sin empresa" }}{% endblock %}
 
@@ -20,7 +21,7 @@
     <div class="flex gap-2">
         <a href="{% url 'consultas:cotizacion' consulta.pk %}"
            class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
-            Generar cotización
+            {% if consulta.lineas.all %}Editar cotización{% else %}Generar cotización{% endif %}
         </a>
         <a href="{% url 'consultas:edit' consulta.pk %}"
            class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
@@ -41,6 +42,126 @@
                 {% if consulta.cantidad %}<div><dt class="text-gray-400">Cantidad</dt><dd class="font-medium mt-1">{{ consulta.cantidad }}</dd></div>{% endif %}
                 {% if consulta.numero_cotizacion %}<div><dt class="text-gray-400">Nº Cotización</dt><dd class="font-medium mt-1">{{ consulta.numero_cotizacion }}</dd></div>{% endif %}
             </dl>
+        </div>
+
+        <!-- Cotización: qué se le cotizó y si ya salió para el cliente -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Cotización</h2>
+                {% if consulta.lineas.all %}
+                <div class="flex items-center gap-3">
+                    <a href="{% url 'consultas:cotizacion' consulta.pk %}"
+                       class="text-xs text-blue-600 hover:text-blue-800 font-medium">Editar →</a>
+                    <a href="{% url 'consultas:cotizacion_pdf' consulta.pk %}"
+                       class="px-3 py-1.5 bg-gray-800 text-white text-xs font-medium rounded-lg hover:bg-gray-700">
+                        Descargar PDF
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if consulta.lineas.all %}
+            <table class="min-w-full text-sm">
+                <thead class="text-xs text-gray-400 uppercase tracking-wider">
+                    <tr>
+                        <th class="text-left pb-2 font-medium">Descripción</th>
+                        <th class="text-right pb-2 font-medium">Cant.</th>
+                        <th class="text-right pb-2 font-medium">Precio</th>
+                        <th class="text-right pb-2 font-medium">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for linea in consulta.lineas.all %}
+                    <tr>
+                        <td class="py-2 pr-2 text-gray-800">{{ linea.descripcion }}</td>
+                        <td class="py-2 text-right text-gray-600 whitespace-nowrap">{{ linea.cantidad|floatformat:"-2" }}</td>
+                        <td class="py-2 text-right text-gray-600 whitespace-nowrap">
+                            {{ linea.simbolo_moneda }} {{ linea.precio_unitario|precio_ar }}
+                        </td>
+                        <td class="py-2 text-right font-medium text-gray-900 whitespace-nowrap">
+                            {% if linea.subtotal_convertido %}
+                                {{ consulta.simbolo_moneda }} {{ linea.subtotal_convertido|precio_ar }}
+                            {% else %}<span class="text-amber-600 text-xs">sin convertir</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if totales %}
+            <dl class="mt-4 pt-3 border-t border-gray-200 space-y-1 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-400">Neto</dt>
+                    <dd class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.neto|precio_ar }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-400">IVA 21%</dt>
+                    <dd class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.iva|precio_ar }}</dd></div>
+                <div class="flex justify-between pt-1"><dt class="font-semibold text-gray-700">Total</dt>
+                    <dd class="font-bold text-gray-900 text-base">{{ consulta.simbolo_moneda }} {{ totales.con_iva|precio_ar }}</dd></div>
+            </dl>
+            {% else %}
+            <p class="mt-4 pt-3 border-t border-gray-200 text-sm text-amber-600">
+                La cotización mezcla pesos y dólares y no tiene tipo de cambio: el total no se puede calcular.
+                <a href="{% url 'consultas:cotizacion' consulta.pk %}" class="underline">Cargalo acá</a>.
+            </p>
+            {% endif %}
+            {% else %}
+            <p class="text-sm text-gray-400">
+                Todavía no se le cargó ninguna cotización a esta consulta.
+                {% if user.puede_cargar_ventas %}
+                <a href="{% url 'consultas:cotizacion' consulta.pk %}" class="text-blue-600 hover:underline">Armarla ahora</a>.
+                {% endif %}
+            </p>
+            {% endif %}
+
+            <!-- Los PDF que salieron: se anotan solos al generarse -->
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                    Cotizaciones enviadas
+                </h3>
+                {% if consulta.cotizaciones.all %}
+                <ul class="space-y-2">
+                    {% for cot in consulta.cotizaciones.all %}
+                    <li class="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+                        <div class="text-sm">
+                            <p class="font-medium text-gray-800">
+                                {% if cot.numero %}Nº {{ cot.numero }}{% else %}Sin número{% endif %}
+                                {% if cot.total_neto %}
+                                <span class="text-gray-500 font-normal">· {{ cot.simbolo_moneda }} {{ cot.total_neto|precio_ar }} + IVA</span>
+                                {% endif %}
+                            </p>
+                            <p class="text-xs text-gray-400 mt-0.5">
+                                PDF generado el {{ cot.fecha|date:"d/m/Y H:i" }}
+                                por {{ cot.generada_por.get_full_name|default:cot.generada_por.email }}
+                            </p>
+                            {% if cot.fue_enviada %}
+                            <p class="text-xs text-green-600 font-medium mt-0.5">
+                                ✓ Enviada al cliente el {{ cot.enviada_at|date:"d/m/Y H:i" }}
+                            </p>
+                            {% endif %}
+                        </div>
+                        {% if user.puede_cargar_ventas %}
+                        <form method="post" action="{% url 'consultas:cotizacion_enviada' consulta.pk cot.pk %}"
+                              class="shrink-0">
+                            {% csrf_token %}
+                            {% if cot.fue_enviada %}
+                            <input type="hidden" name="accion" value="deshacer">
+                            <button type="submit" class="text-xs text-gray-400 hover:text-gray-600 underline">Deshacer</button>
+                            {% else %}
+                            <button type="submit"
+                                    class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 whitespace-nowrap">
+                                La mandé
+                            </button>
+                            {% endif %}
+                        </form>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-400">
+                    Nunca se generó el PDF de esta cotización, así que el cliente todavía no la recibió.
+                </p>
+                {% endif %}
+            </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

@@ -15,7 +15,7 @@ from clientes.models import Cliente, normalizar_cuit
 from productos.models import ARS, MONEDAS, Producto
 from . import membrete
 from .forms import ConsultaClienteForm, FiltroConsultaForm, SeguimientoForm
-from .models import Consulta, LineaCotizacion
+from .models import Consulta, CotizacionGenerada, LineaCotizacion
 
 MONEDAS_VALIDAS = dict(MONEDAS)
 
@@ -79,7 +79,9 @@ class ConsultaAccesoMixin(VentasRequeridasMixin):
 
 class ConsultaListView(ConsultaAccesoMixin, View):
     def get(self, request):
-        qs = self.get_consultas()
+        # La anotación va antes del filtrado: la columna de cotización se puede
+        # filtrar, y para eso los campos tienen que estar ya en el queryset.
+        qs = self.get_consultas().con_estado_de_cotizacion()
         filtro = FiltroConsultaForm(request.GET)
 
         if filtro.is_valid():
@@ -95,6 +97,13 @@ class ConsultaListView(ConsultaAccesoMixin, View):
                     Q(productos__icontains=q) |
                     Q(numero_cotizacion__icontains=q)
                 )
+            cot = filtro.cleaned_data['cotizacion']
+            if cot == FiltroConsultaForm.SIN_COTIZAR:
+                qs = qs.filter(cotizaciones_count=0)
+            elif cot == FiltroConsultaForm.GENERADA:
+                qs = qs.filter(cotizaciones_count__gt=0, ultimo_envio__isnull=True)
+            elif cot == FiltroConsultaForm.ENVIADA:
+                qs = qs.filter(ultimo_envio__isnull=False)
 
         # Filtro por vendedor (solo quien ve todas las consultas puede filtrar por otros)
         vendedor_id = request.GET.get('vendedor', '')
@@ -118,10 +127,12 @@ class ConsultaListView(ConsultaAccesoMixin, View):
 
 class ConsultaDetailView(ConsultaAccesoMixin, View):
     def get(self, request, pk):
-        consulta = self.get_consulta(pk, 'logs__user')
+        consulta = self.get_consulta(
+            pk, 'logs__user', 'lineas__producto', 'cotizaciones__generada_por')
         return render(request, 'consultas/detail.html', {
             'consulta': consulta,
             'seg_form': SeguimientoForm(),
+            'totales': consulta.totales(),
         })
 
     def post(self, request, pk):
@@ -250,10 +261,38 @@ class CotizacionPDFView(ConsultaAccesoMixin, View):
         import weasyprint
         pdf_bytes = weasyprint.HTML(string=html).write_pdf()
 
+        # Bajar el PDF es el acto de mandarle la cotización al cliente: se
+        # anota acá, que es el único lugar por donde la cotización sale del
+        # sistema, y así el rastro no depende de que nadie lo registre a mano.
+        CotizacionGenerada.registrar(consulta, request.user, totales)
+
         nombre = f"Cotizacion_{consulta.numero_cotizacion or consulta.pk}.pdf"
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{nombre}"'
         return response
+
+
+class CotizacionEnviadaView(ConsultaAccesoMixin, View):
+    """Sella (o desmarca) que una cotización generada se le mandó al cliente.
+
+    El registro automático sabe que el PDF se generó; que además haya salido
+    para el cliente solo lo sabe el vendedor, y esto es el click con el que lo
+    confirma. Se puede deshacer: marcarla por error y no poder corregirlo
+    ensucia justo el dato que el gerente viene a mirar.
+    """
+
+    exige_carga = True
+
+    def post(self, request, pk, registro_pk):
+        consulta = self.get_consulta(pk)
+        registro = get_object_or_404(consulta.cotizaciones, pk=registro_pk)
+        if request.POST.get('accion') == 'deshacer':
+            registro.desmarcar_enviada()
+            messages.success(request, 'La cotización quedó como no enviada.')
+        else:
+            registro.marcar_enviada(request.user)
+            messages.success(request, 'Cotización marcada como enviada.')
+        return redirect('consultas:detail', pk=pk)
 
 
 class ClienteScopeMixin(VentasRequeridasMixin):

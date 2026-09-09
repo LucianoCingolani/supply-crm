@@ -22,6 +22,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>{{ filtro.buscar }}</div>
         <div>{{ filtro.estado }}</div>
+        <div>{{ filtro.cotizacion }}</div>
         {% if vendedores %}
         <div>
             <select name="vendedor"
@@ -53,6 +54,7 @@
                     <th class="px-4 py-3 text-left">Empresa / Contacto</th>
                     <th class="px-4 py-3 text-left">Teléfono</th>
                     <th class="px-4 py-3 text-left">Estado</th>
+                    <th class="px-4 py-3 text-left">Cotización</th>
                     <th class="px-4 py-3 text-left">Seguimiento</th>
                     {% if user.puede_ver_todas_las_consultas %}<th class="px-4 py-3 text-left">Vendedor</th>{% endif %}
                     <th class="px-4 py-3"></th>
@@ -86,6 +88,20 @@
                             <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">{{ c.get_estado_display }}</span>
                         {% endif %}
                     </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        {% if c.ultimo_envio %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700"
+                                  title="Enviada al cliente">✓ Enviada {{ c.ultimo_envio|date:"d/m" }}</span>
+                        {% elif c.cotizaciones_count %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600"
+                                  title="Se generó el PDF pero nadie confirmó que se mandó">PDF generado</span>
+                        {% elif c.lineas_count %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700"
+                                  title="La cotización está armada pero nunca se generó el PDF">Armada, sin enviar</span>
+                        {% else %}
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Sin cotizar</span>
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-3 text-gray-500 text-xs">
                         {% if c.fecha_seguimiento %}
                             {% if c.seguimiento_vencido %}
@@ -104,7 +120,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="px-4 py-10 text-center text-gray-400">No hay consultas que coincidan.</td>
+                    <td colspan="9" class="px-4 py-10 text-center text-gray-400">No hay consultas que coincidan.</td>
                 </tr>
                 {% endfor %}
             </tbody>

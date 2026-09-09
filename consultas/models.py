@@ -1,9 +1,10 @@
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Max, Q
+from django.db.models import Count, Max, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -61,6 +62,23 @@ class ConsultaQuerySet(models.QuerySet):
         """
         return self.annotate(
             ultimo_movimiento=Coalesce(Max('logs__fecha'), 'created_at'),
+        )
+
+    def con_estado_de_cotizacion(self):
+        """Anota si a esta consulta ya se le generó una cotización y cuándo se
+        mandó la última.
+
+        Es lo que la lista necesita para distinguir de un vistazo la consulta a
+        la que ya se le cotizó de la que quedó sin cotizar. `estado` no lo
+        contesta: nace en "cotizado" el día que se carga la consulta.
+        """
+        return self.annotate(
+            cotizaciones_count=Count('cotizaciones', distinct=True),
+            ultimo_envio=Max('cotizaciones__enviada_at'),
+            # Tener la cotización armada y no haberla mandado no es lo mismo que
+            # no tener nada: decirle "Sin cotizar" a una consulta con las líneas
+            # cargadas es mentirle al que mira la columna.
+            lineas_count=Count('lineas', distinct=True),
         )
 
 
@@ -317,3 +335,97 @@ class LineaCotizacion(models.Model):
 
     def __str__(self):
         return f"{self.descripcion} x{self.cantidad}"
+
+
+class CotizacionGenerada(models.Model):
+    """Un PDF de cotización que salió del sistema.
+
+    Se registra sola cada vez que se genera el PDF: bajarlo es el acto con el
+    que se le manda la cotización al cliente, así el rastro no depende de que
+    nadie se acuerde de anotarlo. Antes de esto no había manera de saber si a un
+    cliente ya se le había cotizado: `Consulta.estado` nace en "cotizado" el día
+    que se carga la consulta, sin una sola línea encima, y por eso no sirve para
+    responderlo.
+
+    Copia el número y el total del momento porque la cotización se sigue
+    editando: lo que se lee acá es lo que se le mandó, no lo que dice la consulta
+    hoy.
+
+    "Generada" es lo único que el sistema sabe con certeza. Que además se haya
+    mandado lo sella el vendedor de un click en `enviada_at`: el registro
+    automático da el piso, la confirmación da la certeza.
+    """
+
+    # Dos descargas del mismo PDF en este lapso son el mismo envío: el vendedor
+    # que lo mira, lo cierra y lo baja de nuevo para adjuntarlo no tiene que
+    # dejar tres filas en la ficha.
+    VENTANA_MISMA_DESCARGA = timedelta(hours=1)
+
+    consulta = models.ForeignKey(
+        Consulta, on_delete=models.CASCADE, related_name='cotizaciones')
+    numero = models.CharField(max_length=20, blank=True, verbose_name='Nº de cotización')
+    generada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='cotizaciones_generadas')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    # El total va suelto y no calculado desde las líneas: es una foto del
+    # momento, y las líneas de la consulta cambian después.
+    total_neto = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    moneda = models.CharField(max_length=3, choices=MONEDAS, default=ARS)
+
+    enviada_at = models.DateTimeField(null=True, blank=True)
+    enviada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+')
+
+    class Meta:
+        ordering = ['-fecha']
+        verbose_name = 'cotización generada'
+        verbose_name_plural = 'cotizaciones generadas'
+
+    def __str__(self):
+        return f"Cotización {self.numero or self.consulta_id} — {self.fecha:%d/%m/%Y %H:%M}"
+
+    @property
+    def simbolo_moneda(self):
+        return simbolo(self.moneda)
+
+    @property
+    def fue_enviada(self):
+        return self.enviada_at is not None
+
+    @classmethod
+    def registrar(cls, consulta, user, totales):
+        """Anota que se generó el PDF de `consulta`, o devuelve el registro que
+        ya cubre esta descarga.
+
+        Devuelve el registro en los dos casos, para que quien llama no tenga que
+        distinguirlos.
+        """
+        numero = consulta.numero_cotizacion or ''
+        neto = totales.neto if totales else None
+        reciente = cls.objects.filter(
+            consulta=consulta,
+            generada_por=user,
+            numero=numero,
+            total_neto=neto,
+            moneda=consulta.moneda,
+            fecha__gte=timezone.now() - cls.VENTANA_MISMA_DESCARGA,
+        ).first()
+        if reciente:
+            return reciente
+        return cls.objects.create(
+            consulta=consulta, numero=numero, generada_por=user,
+            total_neto=neto, moneda=consulta.moneda,
+        )
+
+    def marcar_enviada(self, user):
+        self.enviada_at = timezone.now()
+        self.enviada_por = user
+        self.save(update_fields=['enviada_at', 'enviada_por'])
+
+    def desmarcar_enviada(self):
+        self.enviada_at = None
+        self.enviada_por = None
+        self.save(update_fields=['enviada_at', 'enviada_por'])
