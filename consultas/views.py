@@ -15,13 +15,28 @@ from clientes.models import Cliente, normalizar_cuit
 from productos.models import ARS, MONEDAS, Producto
 from . import membrete
 from .forms import ConsultaClienteForm, FiltroConsultaForm, SeguimientoForm
-from .models import Consulta, CotizacionGenerada, LineaCotizacion
+from .models import (ALICUOTAS_IVA, ALICUOTAS_VALIDAS, IVA_GENERAL, Consulta,
+                     CotizacionGenerada, LineaCotizacion)
 
 MONEDAS_VALIDAS = dict(MONEDAS)
 
 
 def moneda_valida(valor, por_defecto=ARS):
     return valor if valor in MONEDAS_VALIDAS else por_defecto
+
+
+def leer_alicuota(request, por_defecto=IVA_GENERAL):
+    """La alícuota de IVA elegida, o la de siempre si llega algo raro.
+
+    Se valida contra la lista: el 21%, el 10,5% y la exenta son las únicas que
+    la empresa factura, y un valor inventado saldría impreso en la cotización.
+    """
+    crudo = (request.POST.get('alicuota_iva') or '').strip().replace(',', '.')
+    try:
+        valor = Decimal(crudo)
+    except InvalidOperation:
+        return por_defecto
+    return valor if valor in ALICUOTAS_VALIDAS else por_defecto
 
 
 def leer_tipo_cambio(request):
@@ -193,6 +208,7 @@ class CotizacionView(ConsultaAccesoMixin, View):
             'consulta': consulta,
             'productos': productos,
             'monedas': MONEDAS,
+            'alicuotas': ALICUOTAS_IVA,
             'totales': consulta.totales(),
         })
 
@@ -231,7 +247,9 @@ class CotizacionView(ConsultaAccesoMixin, View):
                 return redirect('consultas:cotizacion', pk=pk)
             consulta.moneda = moneda_valida(request.POST.get('moneda'), consulta.moneda)
             consulta.tipo_cambio = tipo_cambio
-            consulta.save(update_fields=['moneda', 'tipo_cambio', 'updated_at'])
+            consulta.alicuota_iva = leer_alicuota(request, consulta.alicuota_iva)
+            consulta.save(update_fields=[
+                'moneda', 'tipo_cambio', 'alicuota_iva', 'updated_at'])
 
         return redirect('consultas:cotizacion', pk=pk)
 
@@ -417,6 +435,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
             'categorias': categorias_de(productos),
             'hoy': fecha_str or datetime.date.today().isoformat(),
             'monedas': MONEDAS,
+            'alicuotas': ALICUOTAS_IVA,
             'post': post,
         })
 
@@ -436,6 +455,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
             fecha = datetime.date.today()
 
         moneda = moneda_valida(request.POST.get('moneda'))
+        alicuota = leer_alicuota(request)
         tipo_cambio, tc_ok = leer_tipo_cambio(request)
         if not tc_ok:
             messages.error(request, 'Tipo de cambio inválido.')
@@ -463,6 +483,7 @@ class NuevaCotizacionView(ClienteScopeMixin, View):
                 estado=Consulta.COTIZADO,
                 moneda=moneda,
                 tipo_cambio=tipo_cambio,
+                alicuota_iva=alicuota,
                 vendedor=request.user,
             ),
             cliente,

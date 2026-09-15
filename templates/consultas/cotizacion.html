@@ -180,12 +180,19 @@
                     <span class="text-gray-500">Subtotal neto</span>
                     <span class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.neto }}</span>
                 </div>
+                {% if consulta.cotiza_con_iva %}
                 <div class="flex justify-between">
-                    <span class="text-gray-500">IVA 21%</span>
+                    <span class="text-gray-500">IVA {{ consulta.iva_porcentaje }}%</span>
                     <span class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.iva }}</span>
                 </div>
+                {% else %}
+                <div class="flex justify-between">
+                    <span class="text-gray-500">IVA</span>
+                    <span class="font-medium text-amber-700">Exenta</span>
+                </div>
+                {% endif %}
                 <div class="flex justify-between border-t border-gray-100 pt-2 mt-2">
-                    <span class="font-semibold text-gray-900">Total c/ IVA</span>
+                    <span class="font-semibold text-gray-900">{% if consulta.cotiza_con_iva %}Total c/ IVA{% else %}Total{% endif %}</span>
                     <span class="font-bold text-gray-900 text-base">{{ consulta.simbolo_moneda }} {{ totales.con_iva }}</span>
                 </div>
             </div>
@@ -199,7 +206,7 @@
         <!-- Moneda de la cotización -->
         {% if user.puede_cargar_ventas %}
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Moneda</h2>
+            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Moneda e IVA</h2>
             <form method="post" class="space-y-3">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="moneda">
@@ -219,9 +226,19 @@
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <p class="text-xs text-gray-400 mt-1">Pesos por dólar. Solo hace falta si hay líneas en las dos monedas.</p>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">IVA</label>
+                    <select name="alicuota_iva"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        {% for valor, etiqueta in alicuotas %}
+                        <option value="{{ valor }}" {% if consulta.alicuota_iva == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Exento para los clientes que no tributan IVA: la cotización sale sin discriminarlo.</p>
+                </div>
                 <button type="submit"
                     class="w-full px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700">
-                    Guardar moneda
+                    Guardar
                 </button>
             </form>
         </div>

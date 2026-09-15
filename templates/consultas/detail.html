@@ -92,8 +92,13 @@
             <dl class="mt-4 pt-3 border-t border-gray-200 space-y-1 text-sm">
                 <div class="flex justify-between"><dt class="text-gray-400">Neto</dt>
                     <dd class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.neto|precio_ar }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-400">IVA 21%</dt>
+                {% if consulta.cotiza_con_iva %}
+                <div class="flex justify-between"><dt class="text-gray-400">IVA {{ consulta.iva_porcentaje }}%</dt>
                     <dd class="font-medium">{{ consulta.simbolo_moneda }} {{ totales.iva|precio_ar }}</dd></div>
+                {% else %}
+                <div class="flex justify-between"><dt class="text-gray-400">IVA</dt>
+                    <dd class="font-medium text-amber-700">Exenta</dd></div>
+                {% endif %}
                 <div class="flex justify-between pt-1"><dt class="font-semibold text-gray-700">Total</dt>
                     <dd class="font-bold text-gray-900 text-base">{{ consulta.simbolo_moneda }} {{ totales.con_iva|precio_ar }}</dd></div>
             </dl>
@@ -125,7 +130,7 @@
                             <p class="font-medium text-gray-800">
                                 {% if cot.numero %}Nº {{ cot.numero }}{% else %}Sin número{% endif %}
                                 {% if cot.total_neto %}
-                                <span class="text-gray-500 font-normal">· {{ cot.simbolo_moneda }} {{ cot.total_neto|precio_ar }} + IVA</span>
+                                <span class="text-gray-500 font-normal">· {{ cot.simbolo_moneda }} {{ cot.total_neto|precio_ar }}{% if consulta.cotiza_con_iva %} + IVA{% endif %}</span>
                                 {% endif %}
                             </p>
                             <p class="text-xs text-gray-400 mt-0.5">

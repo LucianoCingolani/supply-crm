@@ -11,12 +11,29 @@ from django.utils import timezone
 from productos.models import ARS, MONEDAS, USD, simbolo
 
 CENTAVOS = Decimal('0.01')
-IVA = Decimal('0.21')
+
+# Alícuotas con las que se puede cotizar. La general es 21%, pero hay
+# operaciones al 10,5% y otras exentas —clientes de provincias que no tributan
+# IVA—, y en esas la cotización no puede salir con un IVA que no se factura.
+IVA_GENERAL = Decimal('21')
+IVA_REDUCIDO = Decimal('10.5')
+IVA_EXENTO = Decimal('0')
+
+ALICUOTAS_IVA = [
+    (IVA_GENERAL, '21%'),
+    (IVA_REDUCIDO, '10,5%'),
+    (IVA_EXENTO, 'Exento (sin IVA)'),
+]
+ALICUOTAS_VALIDAS = {valor for valor, _ in ALICUOTAS_IVA}
 
 
 @dataclass(frozen=True)
 class Totales:
-    """Los tres números del pie de la cotización, en su moneda."""
+    """Los tres números del pie de la cotización, en su moneda.
+
+    Exenta, el IVA es cero y `con_iva` iguala al neto: el total sigue estando
+    donde estaba y quien imprime decide si muestra las tres filas o una sola.
+    """
     neto: Decimal
     iva: Decimal
     con_iva: Decimal
@@ -146,6 +163,14 @@ class Consulta(models.Model):
         help_text='Pesos por dólar. Solo hace falta si la cotización mezcla monedas.',
     )
 
+    # Con qué alícuota se calcula el IVA de esta cotización. Cero es exenta: no
+    # hay IVA que discriminar y la cotización no lo nombra en ninguna parte.
+    alicuota_iva = models.DecimalField(
+        max_digits=4, decimal_places=2,
+        choices=ALICUOTAS_IVA, default=IVA_GENERAL,
+        verbose_name='IVA',
+    )
+
     # Estado y seguimiento
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default=COTIZADO)
     notas = models.TextField(blank=True)
@@ -219,6 +244,16 @@ class Consulta(models.Model):
         return simbolo(self.moneda)
 
     @property
+    def cotiza_con_iva(self):
+        """False si la cotización es exenta: ahí el IVA no se imprime."""
+        return Decimal(self.alicuota_iva) > 0
+
+    @property
+    def iva_porcentaje(self):
+        """La alícuota como se escribe en la cotización: '21', '10,5'."""
+        return f'{Decimal(self.alicuota_iva).normalize():f}'.replace('.', ',')
+
+    @property
     def mezcla_monedas(self):
         """True si hay líneas cargadas en una moneda distinta a la de la cotización."""
         return any(l.moneda != self.moneda for l in self.lineas.all())
@@ -253,7 +288,7 @@ class Consulta(models.Model):
                 return None
             neto += convertido
         neto = neto.quantize(CENTAVOS)
-        iva = (neto * IVA).quantize(CENTAVOS)
+        iva = (neto * Decimal(self.alicuota_iva) / 100).quantize(CENTAVOS)
         return Totales(neto=neto, iva=iva, con_iva=neto + iva)
 
 

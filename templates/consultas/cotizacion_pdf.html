@@ -293,7 +293,8 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
       </td>
       {# floatformat y no el valor crudo: una cantidad entera es "12", no "12,00". #}
       <td class="r">{{ linea.cantidad|floatformat:"-2" }}</td>
-      <td class="r">{{ consulta.simbolo_moneda }} {{ linea.precio_convertido|precio_ar }} + IVA</td>
+      {# El "+ IVA" aclara que el precio es neto; exenta no hay IVA que aclarar. #}
+      <td class="r">{{ consulta.simbolo_moneda }} {{ linea.precio_convertido|precio_ar }}{% if consulta.cotiza_con_iva %} + IVA{% endif %}</td>
       <td class="r"><strong>{{ consulta.simbolo_moneda }} {{ linea.subtotal_convertido|precio_ar }}</strong></td>
     </tr>
     {% endfor %}
@@ -302,11 +303,22 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
 
 <div class="totals-wrap">
   <table class="totals-inner">
+    {% if consulta.cotiza_con_iva %}
     <tr><td class="lbl">Subtotal neto</td><td class="val">{{ consulta.simbolo_moneda }} {{ totales.neto|precio_ar }}</td></tr>
-    <tr><td class="lbl">IVA (21%)</td><td class="val">{{ consulta.simbolo_moneda }} {{ totales.iva|precio_ar }}</td></tr>
+    <tr><td class="lbl">IVA ({{ consulta.iva_porcentaje }}%)</td><td class="val">{{ consulta.simbolo_moneda }} {{ totales.iva|precio_ar }}</td></tr>
     <tr class="grand"><td>Total c/ IVA</td><td style="text-align:right">{{ consulta.simbolo_moneda }} {{ totales.con_iva|precio_ar }}</td></tr>
+    {% else %}
+    {# Exenta: el neto es el total. Una sola fila, y dicho por qué. #}
+    <tr class="grand"><td>Total</td><td style="text-align:right">{{ consulta.simbolo_moneda }} {{ totales.neto|precio_ar }}</td></tr>
+    {% endif %}
   </table>
 </div>
+
+{% if not consulta.cotiza_con_iva %}
+<p style="margin-top:6px; text-align:right; font-size:8pt; color:#555;">
+  Operación exenta de IVA. Los importes son finales.
+</p>
+{% endif %}
 
 {% if consulta.mezcla_monedas %}
 <p style="margin-top:6px; text-align:right; font-size:8pt; color:#555;">
@@ -368,7 +380,11 @@ table.t-precios tbody td.desc small  { font-size: 8pt; color: #999; display: blo
   <div class="cond-body">
 
     <div class="cond-item">
-      <b>Tasa de IVA:</b> 21%.
+      {% if consulta.cotiza_con_iva %}
+      <b>Tasa de IVA:</b> {{ consulta.iva_porcentaje }}%.
+      {% else %}
+      <b>Tasa de IVA:</b> Operación exenta de IVA.
+      {% endif %}
     </div>
 
     <div class="cond-item">
